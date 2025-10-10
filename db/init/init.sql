@@ -2,16 +2,22 @@
 -- Web Matcha Database Schema
 -- ==============================
 
+-- Create ENUM types
+CREATE TYPE gender_type AS ENUM ('male', 'female');
+CREATE TYPE sexual_orientation_type AS ENUM ('straight', 'gay', 'bisexual');
+CREATE TYPE notification_type AS ENUM ('like', 'view', 'message', 'match', 'unlike');
+
 -- 1. Users Table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
+    is_email_verified BOOLEAN DEFAULT FALSE,
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
-    gender ENUM('male', 'female') NOT NULL,
-    sexual_orientation ENUM('straight', 'gay', 'bisexual') DEFAULT 'bisexual',
+    gender gender_type NOT NULL,
+    sexual_orientation sexual_orientation_type DEFAULT 'bisexual',
     biography TEXT,
     fame_rating INT DEFAULT 0,
     latitude DECIMAL(9,6),
@@ -99,7 +105,7 @@ CREATE TABLE messages (
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    type ENUM('like', 'view', 'message', 'match', 'unlike'),
+    type notification_type,
     source_user_id INT REFERENCES users(id),
     read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
