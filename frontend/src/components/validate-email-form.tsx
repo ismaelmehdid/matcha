@@ -12,13 +12,14 @@ import illustration from "@/assets/illustration.png";
 import { type FormEvent, useState, useEffect } from "react";
 import { useCurrentUser } from "@/hooks";
 import { useNavigate } from "react-router-dom";
+import { Spinner } from "@/components/ui/spinner";
 
 export function ValidateEmailForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { user } = useCurrentUser();
   const navigate = useNavigate();
+  const { user } = useCurrentUser();
   const [isSentButtonDisabled, setIsSentButtonDisabled] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -41,6 +42,7 @@ export function ValidateEmailForm({
     }
   }, [isSentButtonDisabled, timeLeft]);
   useEffect(() => {
+    console.log(user);
     if (user?.is_email_verified) {
       navigate("/");
     }
@@ -49,35 +51,43 @@ export function ValidateEmailForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
-        <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
-            <FieldGroup>
-              <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-bold">Validate your email</h1>
-                <p className="text-muted-foreground">
-                  Enter the email address associated with your account, and
-                  we'll send you a link to reset your password.
-                </p>
-              </div>
-              <Field>
-                <FieldLabel htmlFor="username">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
-              </Field>
-              <Field>
-                <Button type="submit" disabled={isSentButtonDisabled}>
-                  {isSentButtonDisabled ? `Resend in ${timeLeft}s` : "Send"}
-                </Button>
-              </Field>
-              <FieldDescription className="text-center">
-                <a href="/sign-in">Return to Sign In</a>
-              </FieldDescription>
-            </FieldGroup>
-          </form>
+        <CardContent className="grid p-0 md:grid-cols-2 min-h-[400px]">
+          {user ? (
+            <form className="p-6 md:p-8" onSubmit={handleSubmit}>
+              <FieldGroup>
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <h1 className="text-2xl font-bold">Validate your email</h1>
+                  <p className="text-muted-foreground">
+                    We've sent a verification link to papekfoek@gmail.com. If
+                    you don't see it within 5 minutes, please check your spam or
+                    click resend.
+                  </p>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="username">Email</FieldLabel>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    required
+                  />
+                </Field>
+                <Field>
+                  <Button type="submit" disabled={isSentButtonDisabled}>
+                    {isSentButtonDisabled ? `Resend in ${timeLeft}s` : "Send"}
+                  </Button>
+                </Field>
+                <FieldDescription className="text-center">
+                  <a href="/sign-in">Return to Sign In</a>
+                </FieldDescription>
+              </FieldGroup>
+            </form>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <Spinner />
+            </div>
+          )}
+
           <div className="bg-muted relative hidden md:block">
             <img
               src={illustration}

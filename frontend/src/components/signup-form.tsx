@@ -38,9 +38,9 @@ export function SignupForm({
         username
       );
       console.log(response);
-      // localStorage.setItem("token", response.access_token);
+      localStorage.setItem("token", response.access_token);
       toast.success("Account created successfully");
-      navigate("/sign-in");
+      navigate("/");
     } catch (error) {
       toast.error("Error creating account");
     } finally {

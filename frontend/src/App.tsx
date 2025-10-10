@@ -6,6 +6,7 @@ import { Dashboard } from "./pages/dashboard";
 import { ForgotPassword } from "./pages/forgot-password";
 import { Toaster } from "sonner";
 import { ResetPassword } from "./pages/reset-password";
+import { ValidateEmail } from "./pages/validate-email";
 
 function AppRoutes() {
   const location = useLocation();
@@ -15,6 +16,7 @@ function AppRoutes() {
       <Route path="/sign-up" element={<Register />} />
       <Route path="/sign-in/forgot-password" element={<ForgotPassword />} />
       <Route path="/sign-in/reset-password" element={<ResetPassword />} />
+      <Route path="/sign-up/validate-email" element={<ValidateEmail />} />
       <Route path="/" element={<Dashboard />} />
       <Route path="*" element={<div>404</div>} />
     </Routes>
