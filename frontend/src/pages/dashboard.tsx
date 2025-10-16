@@ -1,14 +1,15 @@
-import { UsersAPI } from "@/api/users";
+import { userApi } from "@/api/user/user";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
-  const handleLogout = async () => {
-    await logout();
+  const handleSignOut = async () => {
+    await signOut();
     navigate("/auth/sign-in");
   };
 
@@ -16,14 +17,19 @@ export function Dashboard() {
     <>
       <Button
         onClick={async () => {
-          const user = await UsersAPI.getCurrentUser();
-          console.log(user);
+          const user = await userApi.getOwnProfile();
+          if (user.success) {
+            console.log(user.data);
+            toast.success("Successfully fetched user profile");
+          } else {
+            toast.error("Failed to fetch user profile");
+          }
         }}
       >
         Get User
       </Button>
-      <Button variant="destructive" onClick={handleLogout}>
-        Logout
+      <Button variant="destructive" onClick={handleSignOut}>
+        Sign Out
       </Button>
     </>
   );

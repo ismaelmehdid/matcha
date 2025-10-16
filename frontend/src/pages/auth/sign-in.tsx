@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { AuthAPI } from "@/api/auth";
+import { authApi } from "@/api/auth/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,22 +16,21 @@ export function Signin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      setIsLoading(true);
-      const { accessToken } = await AuthAPI.login(username, password);
-      login(accessToken);
-      navigate("/");
-      toast.success("Logged in successfully");
-    } catch (error) {
-      // TODO: Check what's the API returns and display the right error message
+      const response = await authApi.signIn({ username, password });
+      if (response.success) {
+        signIn(response.data.accessToken);
+        toast.success("Logged in successfully");
+        navigate("/");
+      } else {
+        toast.error("Invalid credentials");
+      }
+    } catch (err) {
       toast.error("Invalid credentials");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -41,7 +40,7 @@ export function Signin() {
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="text-2xl font-bold">Welcome back</h1>
           <p className="text-muted-foreground text-balance">
-            Login to your Matcha account
+            Sign In to your Matcha account
           </p>
         </div>
         <Field>
@@ -74,12 +73,10 @@ export function Signin() {
           />
         </Field>
         <Field>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Login"}
-          </Button>
+          <Button type="submit">Sign In</Button>
         </Field>
         <FieldDescription className="text-center">
-          Don&apos;t have an account? <a href="/auth/sign-up">Sign up</a>
+          Don&apos;t have an account? <a href="/auth/sign-up">Sign Up</a>
         </FieldDescription>
       </FieldGroup>
     </form>

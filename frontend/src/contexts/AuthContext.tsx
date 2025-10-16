@@ -7,13 +7,13 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { tokenManager } from "@/utils/tokenManager";
-import { AuthAPI } from "@/api/auth";
+import { authApi } from "@/api/auth/auth";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (accessToken: string) => void;
-  logout: () => Promise<void>;
+  signIn: (accessToken: string) => void;
+  signOut: () => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
 }
 
@@ -26,16 +26,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     typeof setTimeout
   > | null>(null);
 
-  const logout = useCallback(async () => {
+  const signOut = useCallback(async () => {
     // Clear the refresh timer
     if (refreshTimer) {
       clearTimeout(refreshTimer);
       setRefreshTimer(null);
     }
     try {
-      await AuthAPI.logout();
+      await authApi.signOut();
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("Sign out error:", error);
     } finally {
       tokenManager.clearToken();
       setIsAuthenticated(false);
@@ -44,14 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
-      const { accessToken } = await AuthAPI.refresh();
-      tokenManager.setToken(accessToken);
-      setIsAuthenticated(true);
-      scheduleTokenRefresh();
-      return true;
-    } catch (error) {
-      tokenManager.clearToken();
-      setIsAuthenticated(false);
+      const response = await authApi.refreshToken();
+      if (response.success) {
+        tokenManager.setToken(response.data.accessToken);
+        return true;
+      }
+      return false;
+    } catch (err) {
       return false;
     }
   }, []);
@@ -77,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshTimer, refreshAccessToken]);
 
-  const login = useCallback(
+  const signIn = useCallback(
     (accessToken: string) => {
       tokenManager.setToken(accessToken);
       setIsAuthenticated(true);
@@ -112,8 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         isAuthenticated,
         isLoading,
-        login,
-        logout,
+        signIn,
+        signOut,
         refreshAccessToken,
       }}
     >

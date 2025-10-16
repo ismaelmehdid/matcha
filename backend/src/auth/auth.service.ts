@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, HttpStatus } from '@nestjs/common';
 import { UserService } from '../users/user.service';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
@@ -7,6 +7,7 @@ import { PrivateUserResponseDto } from 'src/users/dto/user-response.dto';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
 import { SignInResponseDto } from './dto/sign-in-response.dto';
 import { AuthRepository } from './repositories/auth.repository';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 
 @Injectable()
 export class AuthService {
@@ -45,9 +46,9 @@ export class AuthService {
   }
 
   async signUp(email: string, password: string, firstName: string, lastName: string, username: string): Promise<SignUpResponseDto> {
-    if (!this.isValidPassword(password)) throw new BadRequestException('Password is not strong enough');
+    if (!this.isValidPassword(password)) throw new BadRequestException(new CustomHttpException('INVALID_PASSWORD', 'Password is not strong enough', 'ERROR_INVALID_PASSWORD', HttpStatus.BAD_REQUEST));
     const existingUser: PrivateUserResponseDto | null = await this.userService.findByEmailOrUsername(email, username);
-    if (existingUser) throw new ConflictException('Email or username already exists');
+    if (existingUser) throw new ConflictException(new CustomHttpException('EMAIL_OR_USERNAME_ALREADY_EXISTS', 'Email or username already exists', 'ERROR_EMAIL_OR_USERNAME_ALREADY_EXISTS', HttpStatus.CONFLICT));
     const newUser: PrivateUserResponseDto = await this.userService.create({ username, email, firstName, lastName, password });
     const accessToken = this.generateAccessToken({ id: newUser.id, email: newUser.email });
     const refreshToken = await this.generateRefreshToken({ id: newUser.id });
@@ -56,34 +57,34 @@ export class AuthService {
 
   async signIn(username: string, password: string): Promise<SignInResponseDto> {
     const user = await this.userService.findByUsername(username);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException(new CustomHttpException('INVALID_CREDENTIALS', 'Invalid credentials', 'ERROR_INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED));
     const valid = await this.userService.validatePassword(username, password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) throw new UnauthorizedException(new CustomHttpException('INVALID_CREDENTIALS', 'Invalid credentials', 'ERROR_INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED));
     const accessToken = this.generateAccessToken(user);
     const refreshToken = await this.generateRefreshToken(user);
     return { accessToken, refreshToken };
   }
 
-  async refresh(refreshToken: string) {
-    if (!refreshToken) throw new BadRequestException('No refresh token provided');
+  async refreshToken(refreshToken: string) {
+    if (!refreshToken) throw new BadRequestException(new CustomHttpException('NO_REFRESH_TOKEN_PROVIDED', 'No refresh token provided', 'ERROR_NO_REFRESH_TOKEN_PROVIDED', HttpStatus.BAD_REQUEST));
     try {
       const payload: any = jwt.verify(refreshToken, this.REFRESH_TOKEN_SECRET);
       const storedToken = await this.authRepository.getEntry(`refresh_token:${payload.sub}`);
-      if (!storedToken || storedToken !== refreshToken) throw new BadRequestException('Invalid refresh token');
+      if (!storedToken || storedToken !== refreshToken) throw new BadRequestException(new CustomHttpException('INVALID_REFRESH_TOKEN', 'Invalid refresh token', 'ERROR_INVALID_REFRESH_TOKEN', HttpStatus.BAD_REQUEST));
       const user = await this.userService.findById(payload.sub);
-      if (!user) throw new BadRequestException('User not found');
+      if (!user) throw new BadRequestException(new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.BAD_REQUEST));
       const accessToken = this.generateAccessToken(user);
       return { accessToken };
     } catch (error) {
-      if (error instanceof jwt.JsonWebTokenError) throw new BadRequestException('Invalid refresh token');
-      if (error instanceof jwt.TokenExpiredError) throw new BadRequestException('Refresh token expired');
+      if (error instanceof jwt.JsonWebTokenError) throw new BadRequestException(new CustomHttpException('INVALID_REFRESH_TOKEN', 'Invalid refresh token', 'ERROR_INVALID_REFRESH_TOKEN', HttpStatus.BAD_REQUEST));
+      if (error instanceof jwt.TokenExpiredError) throw new BadRequestException(new CustomHttpException('REFRESH_TOKEN_EXPIRED', 'Refresh token expired', 'ERROR_REFRESH_TOKEN_EXPIRED', HttpStatus.BAD_REQUEST));
       throw error;
     }
   }
 
-  async requestPasswordReset(email: string): Promise<void> {
+  async sendPasswordResetEmail(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
-    if (!user) throw new BadRequestException('User not found');
+    if (!user) return; // Don't throw an error if the email is not found to prevent email enumeration
     const resetToken = crypto.randomBytes(32).toString('hex');
     await this.authRepository.setEntry(`password_reset:${resetToken}`, user.id, 60 * 60);
     this.resend.emails.send({
@@ -96,32 +97,33 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    if (!token || !newPassword) throw new BadRequestException('Token and new password are required');
-    if (!this.isValidPassword(newPassword)) throw new BadRequestException('Password is not strong enough');
+    if (!token || !newPassword) throw new BadRequestException(new CustomHttpException('TOKEN_AND_NEW_PASSWORD_REQUIRED', 'Token and new password are required', 'ERROR_TOKEN_AND_NEW_PASSWORD_REQUIRED', HttpStatus.BAD_REQUEST));
+    if (!this.isValidPassword(newPassword)) throw new BadRequestException(new CustomHttpException('INVALID_PASSWORD', 'Password is not strong enough', 'ERROR_INVALID_PASSWORD', HttpStatus.BAD_REQUEST));
     const userId = await this.authRepository.getEntry(`password_reset:${token}`);
-    if (!userId) throw new BadRequestException('Invalid or expired reset token');
+    if (!userId) throw new BadRequestException(new CustomHttpException('INVALID_OR_EXPIRED_RESET_TOKEN', 'Invalid or expired reset token', 'ERROR_INVALID_OR_EXPIRED_RESET_TOKEN', HttpStatus.BAD_REQUEST));
     await this.userService.updatePassword(userId, newPassword);
     await this.revokePasswordResetToken(token); // Revoke password reset token
     await this.revokeRefreshToken(userId); // Revoke refresh token
   }
 
-  async verifyResetToken(token: string): Promise<boolean> {
+  async verifyPasswordResetToken(token: string): Promise<boolean> {
     const userId = await this.authRepository.getEntry(`password_reset:${token}`);
     return !!userId;
   }
 
-  async verifyEmail(token: string): Promise<boolean> {
+  async verifyEmail(token: string): Promise<void> {
     const userId = await this.authRepository.getEntry(`verify_email:${token}`); // Verify email verification token
-    if (!userId) return false;
+    if (!userId) throw new BadRequestException(new CustomHttpException('INVALID_OR_EXPIRED_VERIFY_EMAIL_TOKEN', 'Invalid or expired verify email token', 'ERROR_INVALID_OR_EXPIRED_VERIFY_EMAIL_TOKEN', HttpStatus.BAD_REQUEST));
     await this.userService.updateEmailVerified(userId, true);
     await this.revokeVerifyEmailToken(token);
-    return true;
+    return;
   }
 
+  // TODO: Don't return an error if the email is not found to prevent email enumeration
   async sendVerifyEmail(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
-    if (!user) throw new BadRequestException('User not found');
-    if (user.isEmailVerified) throw new BadRequestException('Email already verified');
+    if (!user) throw new BadRequestException(new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.BAD_REQUEST));
+    if (user.isEmailVerified) throw new BadRequestException(new CustomHttpException('EMAIL_ALREADY_VERIFIED', 'Email already verified', 'ERROR_EMAIL_ALREADY_VERIFIED', HttpStatus.BAD_REQUEST));
     const verifyEmailToken = crypto.randomBytes(32).toString('hex');
     await this.authRepository.setEntry(`verify_email:${verifyEmailToken}`, user.id.toString(), 60 * 60);
     this.resend.emails.send({

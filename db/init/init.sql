@@ -22,8 +22,7 @@ CREATE TABLE users (
     fame_rating INT DEFAULT 0,
     latitude DECIMAL(9,6) DEFAULT NULL,
     longitude DECIMAL(9,6) DEFAULT NULL,
-    last_login TIMESTAMP,
-    is_verified BOOLEAN DEFAULT FALSE,
+    last_time_active TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

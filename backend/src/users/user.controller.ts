@@ -1,8 +1,9 @@
-import { BadRequestException, Controller, Get, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, HttpStatus, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { PrivateUserResponseDto } from './dto/user-response.dto';
 import { CurrentUser } from 'src/auth/current-user.decorator';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 
 @Controller('users')
 export class UserController {
@@ -12,7 +13,7 @@ export class UserController {
   @UseGuards(AuthGuard)
   async getCurrentUser(@CurrentUser('sub') userId: string): Promise<PrivateUserResponseDto> {
     const user = await this.userService.findById(userId);
-    if (!user) throw new BadRequestException('User not found'); //TODO: Implement generic http response
+    if (!user) throw new BadRequestException(new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.BAD_REQUEST)); //TODO: Implement generic http response
     return user;
   }
 }

@@ -7,10 +7,12 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useState, type FormEvent } from "react";
-import { AuthAPI } from "@/api/auth";
+import { authApi } from "@/api/auth/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { PasswordFields } from "@/components/PasswordFields";
+import { validatePassword } from "@/utils/password";
 
 export function Signup() {
   const navigate = useNavigate();
@@ -20,28 +22,48 @@ export function Signup() {
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (
+      !passwordValidation.isLongEnough ||
+      !passwordValidation.containsLowerCase ||
+      !passwordValidation.containsUpperCase ||
+      !passwordValidation.containsNumber ||
+      !passwordValidation.containsSpecialCharacter
+    ) {
+      toast.error("Please fix password requirements before submitting");
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      const { accessToken } = await AuthAPI.register(
+      const response = await authApi.signUp({
         email,
-        password,
+        username,
         firstName,
         lastName,
-        username
-      );
-      login(accessToken);
-      toast.success("Account created successfully");
-      navigate("/verify-email");
-    } catch (error) {
-      // TODO: Check what's the API returns and display the right error message
+        password,
+      });
+      if (response.success) {
+        signIn(response.data.accessToken);
+        toast.success("Account created successfully");
+        navigate("/send-verify-email");
+      } else {
+        toast.error("Error creating account");
+      }
+    } catch (err) {
       toast.error("Error creating account");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -102,37 +124,25 @@ export function Signup() {
             </Field>
           </Field>
         </Field>
+        <PasswordFields
+          password={password}
+          setPassword={setPassword}
+          confirmPassword={confirmPassword}
+          setConfirmPassword={setConfirmPassword}
+          setIsPasswordValid={setIsPasswordValid}
+        />
         <Field>
-          <Field className="grid grid-cols-2 gap-4">
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="confirm-password">
-                Confirm Password
-              </FieldLabel>
-              <Input
-                id="confirm-password"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </Field>
-          </Field>
-          <FieldDescription>
-            Must be at least 8 characters long.
-          </FieldDescription>
-        </Field>
-        <Field>
-          <Button type="submit" disabled={isLoading}>
+          <Button
+            type="submit"
+            disabled={
+              !isPasswordValid ||
+              password !== confirmPassword ||
+              email.length === 0 ||
+              username.length === 0 ||
+              firstName.length === 0 ||
+              lastName.length === 0
+            }
+          >
             Create Account
           </Button>
         </Field>

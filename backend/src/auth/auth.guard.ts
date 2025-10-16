@@ -1,11 +1,13 @@
 import {
   CanActivate,
   ExecutionContext,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -14,12 +16,12 @@ export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
-    if (!token) throw new UnauthorizedException('No token provided');
+    if (!token) throw new UnauthorizedException(new CustomHttpException('NO_TOKEN_PROVIDED', 'No token provided', 'ERROR_NO_TOKEN_PROVIDED', HttpStatus.UNAUTHORIZED));
     try {
       const payload = jwt.verify(token, this.ACCESS_TOKEN_SECRET);
       request['user'] = payload;
     } catch {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException(new CustomHttpException('INVALID_TOKEN', 'Invalid token', 'ERROR_INVALID_TOKEN', HttpStatus.UNAUTHORIZED));
     }
     return true;
   }

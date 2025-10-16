@@ -1,9 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsersRepository } from './repositories/users.repository';
 import { PublicUserResponseDto, PrivateUserResponseDto } from './dto/user-response.dto';
 import { User } from './repositories/users.repository';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 
 @Injectable()
 export class UserService {
@@ -72,7 +73,7 @@ export class UserService {
       createUserDto.email,
       createUserDto.username,
     );
-    if (existingUser) throw new ConflictException('Username or email already exists.'); // TODO: Implement generic http response
+    if (existingUser) throw new CustomHttpException('USERNAME_OR_EMAIL_ALREADY_EXISTS', 'Username or email already exists.', 'ERROR_USERNAME_OR_EMAIL_ALREADY_EXISTS', HttpStatus.CONFLICT);
     const passwordHash = await bcrypt.hash(createUserDto.password, 10);
     const user: User = await this.usersRepository.create({ ...createUserDto, password: passwordHash });
     return this.mapUserToPrivateUserResponseDto(user);

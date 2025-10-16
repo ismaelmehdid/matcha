@@ -1,4 +1,4 @@
-import { Routes, useLocation, Navigate } from "react-router";
+import { Routes, Navigate } from "react-router";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Dashboard } from "./pages/dashboard";
 import { Toaster } from "sonner";
@@ -8,10 +8,48 @@ import { AuthLayout } from "./pages/auth/layout";
 import { Signin } from "./pages/auth/sign-in";
 import { Signup } from "./pages/auth/sign-up";
 import { ForgotPassword } from "./pages/auth/forgot-password";
+import { SendVerifyEmail } from "./pages/auth/send-verify-email";
 import { ResetPassword } from "./pages/auth/reset-password";
 import { VerifyEmail } from "./pages/auth/verify-email";
+import { useCurrentUser } from "./hooks/useUserProfile";
+
+function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
+  const { data: user, isLoading } = useCurrentUser();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (user?.success && user.data && !user.data.isEmailVerified) {
+    return <Navigate to="/auth/send-verify-email" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/sign-in" replace />;
+  }
+
+  return <EmailVerificationGuard>{children}</EmailVerificationGuard>;
+}
+
+function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -80,11 +118,27 @@ function App() {
               }
             />
             <Route
+              path="reset-password"
+              element={
+                <PublicRoute>
+                  <ResetPassword />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="send-verify-email"
+              element={
+                <AuthenticatedRoute>
+                  <SendVerifyEmail />
+                </AuthenticatedRoute>
+              }
+            />
+            <Route
               path="verify-email"
               element={
-                <ProtectedRoute>
+                <AuthenticatedRoute>
                   <VerifyEmail />
-                </ProtectedRoute>
+                </AuthenticatedRoute>
               }
             />
           </Route>

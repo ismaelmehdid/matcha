@@ -1,16 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldDescription,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Field, FieldGroup } from "@/components/ui/field";
 import { toast } from "sonner";
-import { type FormEvent, useState, useEffect } from "react";
-import { AuthAPI } from "@/api/auth";
+import { type FormEvent, useState } from "react";
+import { authApi } from "@/api/auth/auth";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { validatePassword } from "@/utils/password";
+import { PasswordFields } from "@/components/PasswordFields";
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -19,31 +14,7 @@ export function ResetPassword() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
-  const [isVerifying, setIsVerifying] = useState(true);
-
-  useEffect(() => {
-    const verifyToken = async () => {
-      if (!token) {
-        setIsValidToken(false);
-        setIsVerifying(false);
-        toast.error("No reset token provided");
-        return;
-      }
-      try {
-        const { valid } = await AuthAPI.verifyResetToken(token);
-        setIsValidToken(valid);
-      } catch (error) {
-        setIsValidToken(false);
-        toast.error("Failed to verify reset token");
-      } finally {
-        setIsVerifying(false);
-      }
-    };
-
-    verifyToken();
-  }, [token]);
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,59 +24,35 @@ export function ResetPassword() {
       return;
     }
 
-    // TODO: Add password strength validation
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (
+      !passwordValidation.isLongEnough ||
+      !passwordValidation.containsLowerCase ||
+      !passwordValidation.containsUpperCase ||
+      !passwordValidation.containsNumber ||
+      !passwordValidation.containsSpecialCharacter
+    ) {
+      toast.error("Please fix password requirements before submitting");
+      return;
+    }
 
     if (!token) {
       toast.error("No reset token provided");
       return;
     }
 
-    try {
-      setIsLoading(true);
-      const { message } = await AuthAPI.resetPassword(token, password);
-      toast.success(message);
+    const response = await authApi.resetPassword({
+      resetPasswordToken: token,
+      newPassword: password,
+    });
+    if (response.success) {
+      toast.success("Password reset successfully");
       navigate("/auth/sign-in");
-    } catch (error) {
-      toast.error("Failed to reset password. Please try again.");
-    } finally {
-      setIsLoading(false);
+    } else {
+      toast.error("Failed to reset password. Invalid token or password."); //TODO: Gotta handle this better
     }
   };
-
-  if (isVerifying) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Card className="overflow-hidden p-0">
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <h1 className="text-2xl font-bold">Verifying reset token...</h1>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!isValidToken) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Card className="overflow-hidden p-0">
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <h1 className="text-2xl font-bold">Invalid Reset Link</h1>
-              <p className="text-muted-foreground">
-                This password reset link is invalid or has expired. Please
-                request a new one.
-              </p>
-              <Button onClick={() => navigate("/auth/forgot-password")}>
-                Request New Link
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <form className="p-6 md:p-8" onSubmit={handleSubmit}>
@@ -116,36 +63,21 @@ export function ResetPassword() {
             Choose a strong password to secure your account
           </p>
         </div>
+        <PasswordFields
+          password={password}
+          setPassword={setPassword}
+          confirmPassword={confirmPassword}
+          setConfirmPassword={setConfirmPassword}
+          passwordLabel="New Password"
+          confirmPasswordLabel="Confirm New Password"
+          setIsPasswordValid={setIsPasswordValid}
+        />
         <Field>
-          <FieldLabel htmlFor="password">New Password</FieldLabel>
-          <Input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-          />
-          <FieldDescription>
-            Must be at least 8 characters long
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="confirm-password">
-            Confirm New Password
-          </FieldLabel>
-          <Input
-            id="confirm-password"
-            type="password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={8}
-          />
-        </Field>
-        <Field>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Changing Password..." : "Change Password"}
+          <Button
+            type="submit"
+            disabled={!isPasswordValid || password !== confirmPassword}
+          >
+            Change Password
           </Button>
         </Field>
       </FieldGroup>

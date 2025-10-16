@@ -8,28 +8,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { type FormEvent, useState, useEffect } from "react";
-import { AuthAPI } from "@/api/auth";
+import { authApi } from "@/api/auth/auth";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSentButtonDisabled, setIsSentButtonDisabled] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      setIsLoading(true);
-      await AuthAPI.forgotPassword(email);
+      await authApi.sendPasswordResetEmail({ email });
       toast.success(
         `Thanks! We've sent a link to ${email} if an account exists.`
       );
       setIsSentButtonDisabled(true);
       setTimeLeft(60);
-    } catch (error) {
+    } catch (err) {
       toast.error("Failed to send reset link. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
   };
   useEffect(() => {
@@ -69,10 +65,8 @@ export function ForgotPassword() {
           />
         </Field>
         <Field>
-          <Button type="submit" disabled={isSentButtonDisabled || isLoading}>
-            {isLoading
-              ? "Sending..."
-              : isSentButtonDisabled
+          <Button type="submit" disabled={isSentButtonDisabled}>
+            {isSentButtonDisabled
               ? `Resend in ${timeLeft}s`
               : "Send Reset Link"}
           </Button>

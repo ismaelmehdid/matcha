@@ -1,4 +1,6 @@
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
 import { tokenManager } from '@/utils/tokenManager';
+import { authApi } from './auth/auth';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -16,99 +18,77 @@ function onTokenRefreshed(token: string | null) {
 
 async function refreshAccessToken(): Promise<string | null> {
   try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    if (data.accessToken) {
-      tokenManager.setToken(data.accessToken);
-      return data.accessToken;
+    const response = await authApi.refreshToken();
+    if (response.success && response.data.accessToken) {
+      tokenManager.setToken(response.data.accessToken);
+      return response.data.accessToken;
     }
     return null;
-  } catch (error) {
-    console.error('Token refresh failed:', error);
+  } catch (err) {
     return null;
   }
 }
 
-export async function api(path: string, options: RequestInit = {}): Promise<any> {
+export const apiClient = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
+apiClient.interceptors.request.use((config) => {
   const token = tokenManager.getToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
+apiClient.interceptors.response.use(
+  (response) => response.data,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-  let res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/')) {
+      originalRequest._retry = true;
 
-  // 401 Unauthorized, means we need to refresh the token and retry
-  if (res.status === 401 && !path.includes('/auth/')) {
-    if (!isRefreshing) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh(async (token) => {
+            if (!token) {
+              reject(error);
+              return;
+            }
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            try {
+              const res = await apiClient(originalRequest);
+              resolve(res);
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+      }
+
       isRefreshing = true;
+
       const newToken = await refreshAccessToken();
       isRefreshing = false;
       onTokenRefreshed(newToken);
 
-      if (newToken) {
-        const newHeaders = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${newToken}`,
-          ...options.headers,
-        };
-
-        res = await fetch(`${API_URL}${path}`, {
-          ...options,
-          headers: newHeaders,
-          credentials: 'include',
-        });
-      } else {
-        // Refresh failed, redirect to login
+      if (!newToken) {
         tokenManager.clearToken();
-        window.location.href = '/sign-in';
-        throw new Error('Session expired');
+        window.location.href = '/auth/sign-in';
+        return Promise.reject(error);
       }
-    } else {
-      // Wait for the ongoing refresh to complete
-      const newToken = await new Promise<string | null>((resolve) => {
-        subscribeTokenRefresh(resolve);
-      });
 
-      if (newToken) {
-        // Retry with new token
-        const newHeaders = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${newToken}`,
-          ...options.headers,
-        };
-
-        res = await fetch(`${API_URL}${path}`, {
-          ...options,
-          headers: newHeaders,
-          credentials: 'include',
-        });
-      } else {
-        tokenManager.clearToken();
-        window.location.href = '/sign-in';
-        throw new Error('Session expired');
-      }
+      originalRequest.headers = originalRequest.headers || {};
+      originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      return apiClient(originalRequest);
     }
-  }
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`API error ${res.status}: ${errorText}`);
+    return Promise.reject(error);
   }
-
-  return res.json();
-}
+);

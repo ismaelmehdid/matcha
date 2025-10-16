@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res, Req, UnauthorizedException, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, UnauthorizedException, Get, UseGuards, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { AuthGuard } from './auth.guard';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 
 @Controller('auth')
 export class AuthController {
@@ -36,54 +37,47 @@ export class AuthController {
   @Post('sign-out')
   async signOut(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies['refresh_token'];
-    if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
+    if (!refreshToken) throw new UnauthorizedException(new CustomHttpException('NO_REFRESH_TOKEN_PROVIDED', 'No refresh token provided', 'ERROR_NO_REFRESH_TOKEN_PROVIDED', HttpStatus.UNAUTHORIZED));
     const payload: any = jwt.decode(refreshToken);
-    if (!payload?.sub) throw new UnauthorizedException('Invalid refresh token');
+    if (!payload?.sub) throw new UnauthorizedException(new CustomHttpException('INVALID_REFRESH_TOKEN', 'Invalid refresh token', 'ERROR_INVALID_REFRESH_TOKEN', HttpStatus.UNAUTHORIZED));
     await this.authService.revokeRefreshToken(payload.sub);
     res.clearCookie('refresh_token', {
       httpOnly: true,
       sameSite: 'strict',
     });
-    return { success: true, message: 'Logged out successfully' };
+    return { success: true, data: {}, messageKey: 'SUCCESS_SIGNED_OUT' };
   }
 
-  @Get('refresh')
-  async refresh(@Req() req: Request) {
+  @Get('refresh-token')
+  async refreshToken(@Req() req: Request) {
     const refreshToken = req.cookies['refresh_token'];
-    if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
-    const { accessToken } = await this.authService.refresh(refreshToken);
-    return { accessToken };
+    if (!refreshToken) throw new UnauthorizedException(new CustomHttpException('NO_REFRESH_TOKEN_PROVIDED', 'No refresh token provided', 'ERROR_NO_REFRESH_TOKEN_PROVIDED', HttpStatus.UNAUTHORIZED));
+    const { accessToken } = await this.authService.refreshToken(refreshToken);
+    return { success: true, data: { accessToken }, messageKey: 'SUCCESS_TOKEN_REFRESHED' };
   }
 
-  @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string) {
-    const message = await this.authService.requestPasswordReset(email);
-    return { message };
+  @Post('send-password-reset-email')
+  async sendPasswordResetEmail(@Body('email') email: string) {
+    await this.authService.sendPasswordResetEmail(email);
+    return { success: true, data: {}, messageKey: 'SUCCESS_PASSWORD_RESET_EMAIL_SENT' };
   }
 
   @Post('reset-password')
   async resetPassword(@Body('token') token: string, @Body('password') password: string) {
     await this.authService.resetPassword(token, password);
-    return { message: 'Password has been successfully reset' };
-  }
-
-  @Get('verify-reset-token') // TODO: I think this is not needed
-  async verifyResetToken(@Req() req: Request) {
-    const token = req.query.token as string;
-    const isValid = await this.authService.verifyResetToken(token);
-    return { valid: isValid };
+    return { success: true, data: {}, messageKey: 'SUCCESS_PASSWORD_RESET' };
   }
 
   @Post('send-verify-email')
   async sendVerifyEmail(@Body('email') email: string) {
     await this.authService.sendVerifyEmail(email);
-    return { message: 'Verify email has been successfully sent' };
+    return { success: true, data: {}, messageKey: 'SUCCESS_VERIFY_EMAIL_SENT' };
   }
 
-  @Get('verify-email') // TODO: I think this is not needed
+  @Get('verify-email')
   async verifyEmail(@Req() req: Request) {
     const token = req.query.token as string;
-    const isValid = await this.authService.verifyEmail(token);
-    return { valid: isValid };
+    await this.authService.verifyEmail(token);
+    return { success: true, data: {}, messageKey: 'SUCCESS_EMAIL_VERIFIED' };
   }
 }
