@@ -2,17 +2,7 @@ import { Injectable, HttpStatus } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { CustomHttpException } from '../../common/exceptions/custom-http.exception';
-
-enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
-
-enum SexualOrientation {
-  STRAIGHT = 'straight',
-  GAY = 'gay',
-  BISEXUAL = 'bisexual',
-}
+import { Gender, SexualOrientation } from '../enums/user.enums';
 
 export interface User {
   id: string;
@@ -96,39 +86,31 @@ export class UsersRepository {
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (updates.firstName !== undefined) {
-      fields.push(`first_name = $${paramIndex++}`);
-      values.push(updates.firstName);
-    }
-    if (updates.lastName !== undefined) {
-      fields.push(`last_name = $${paramIndex++}`);
-      values.push(updates.lastName);
-    }
-    if (updates.gender !== undefined) {
-      fields.push(`gender = $${paramIndex++}`);
-      values.push(updates.gender);
-    }
-    if (updates.sexualOrientation !== undefined) {
-      fields.push(`sexual_orientation = $${paramIndex++}`);
-      values.push(updates.sexualOrientation);
-    }
-    if (updates.biography !== undefined) {
-      fields.push(`biography = $${paramIndex++}`);
-      values.push(updates.biography);
-    }
+    // Map DTO fields to database columns
+    const fieldMap: Record<string, string> = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      gender: 'gender',
+      sexualOrientation: 'sexual_orientation',
+      biography: 'biography',
+    };
+
+    // Build update fields dynamically
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined && fieldMap[key]) {
+        fields.push(`${fieldMap[key]} = $${paramIndex++}`);
+        values.push(value);
+      }
+    });
 
     if (fields.length === 0) {
-      // No updates provided, return current user
-      const user = await this.findById(userId);
-      if (!user) {
-        throw new CustomHttpException(
-          'USER_NOT_FOUND',
-          `User with id ${userId} not found`,
-          'ERROR_USER_NOT_FOUND',
-          HttpStatus.NOT_FOUND
-        );
-      }
-      return user;
+      // No updates provided - this is a bad request
+      throw new CustomHttpException(
+        'NO_UPDATE_FIELDS',
+        'No fields provided for update',
+        'ERROR_NO_UPDATE_FIELDS',
+        HttpStatus.BAD_REQUEST
+      );
     }
 
     values.push(userId);
@@ -140,6 +122,16 @@ export class UsersRepository {
     `;
 
     const result = await this.db.query<User>(query, values);
+
+    if (!result.rows[0]) {
+      throw new CustomHttpException(
+        'USER_NOT_FOUND',
+        `User with id ${userId} not found`,
+        'ERROR_USER_NOT_FOUND',
+        HttpStatus.NOT_FOUND
+      );
+    }
+
     return result.rows[0];
   }
 }
