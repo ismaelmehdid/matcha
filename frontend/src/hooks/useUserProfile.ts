@@ -1,14 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '../api/user/user';
-import type { GetOwnProfileResponse, UpdateProfileRequest } from '../api/user/schema';
+import type { UpdateProfileRequest } from '../api/user/schema';
 import type { EmptyResponse, EmptyErrorResponse } from '../api/schema';
 import { toast } from 'sonner';
 import { getToastMessage } from '@/lib/messageMap';
+import { transformToUser } from '@/lib/transformers';
+import type { User } from '@/types/user';
 
 export function useCurrentUser() {
-  const query = useQuery<GetOwnProfileResponse>({
+  const query = useQuery<User | null>({
     queryKey: ['user'],
-    queryFn: userApi.getOwnProfile,
+    queryFn: async () => {
+      const response = await userApi.getOwnProfile();
+      return transformToUser(response);
+    },
   });
 
   return {
