@@ -1,13 +1,4 @@
-enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
-
-enum SexualOrientation {
-  STRAIGHT = 'straight',
-  GAY = 'gay',
-  BISEXUAL = 'bisexual',
-}
+import { Gender, SexualOrientation } from '../enums/user.enums';
 
 export class PublicUserResponseDto {
   firstName: string;
