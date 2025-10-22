@@ -1,22 +1,50 @@
-import { z } from 'zod';
-import { createApiResponseSchema } from './api';
+import type { Interest } from "./interest";
 
-//TODO: Check if everything is there
-export const UserSchema = z.object({
-  id: z.string(),
-  username: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  gender: z.enum(['male', 'female']),
-  sexualOrientation: z.enum(['straight', 'gay', 'bisexual']),
-  biography: z.string(),
-  fameRating: z.number(),
-  latitude: z.number(),
-  longitude: z.number(),
-  email: z.string(),
-});
+const Gender = {
+  MALE: 'male',
+  FEMALE: 'female',
+} as const;
 
-export const UserResponseSchema = createApiResponseSchema(UserSchema);
+const SexualOrientation = {
+  STRAIGHT: 'straight',
+  GAY: 'gay',
+  BISEXUAL: 'bisexual',
+} as const;
 
-export type User = z.infer<typeof UserSchema>;
-export type UserResponse = z.infer<typeof UserResponseSchema>;
+type Gender = typeof Gender[keyof typeof Gender];
+type SexualOrientation = typeof SexualOrientation[keyof typeof SexualOrientation];
+
+export interface Photo {
+  id: number;
+  url: string;
+  is_profile_pic: boolean;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  gender: Gender | null;
+  sexualOrientation: SexualOrientation | null;
+  biography: string | null;
+  fameRating: number;
+  latitude: number | null;
+  longitude: number | null;
+  email: string;
+  isEmailVerified: boolean;
+  createdAt: Date;
+  lastTimeActive: Date | null;
+  photos: Photo[];
+  interests: Interest[];
+}
+
+// Domain types for authentication
+export interface AuthToken {
+  accessToken: string;
+}
+
+export interface UserSession {
+  token: AuthToken;
+  isAuthenticated: boolean;
+}

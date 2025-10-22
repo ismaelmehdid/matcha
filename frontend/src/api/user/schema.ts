@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { createApiResponseSchema } from "../schema";
 
+export const UserPhotoSchema = z.object({
+  id: z.number(),
+  url: z.string(),
+  is_profile_pic: z.boolean(),
+});
+export type UserPhoto = z.infer<typeof UserPhotoSchema>;
+
+export const UserInterestSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+export type UserInterest = z.infer<typeof UserInterestSchema>;
+
 //===----------------------------------------------------------------------===//
 //=== Get Profile
 //===----------------------------------------------------------------------===//
@@ -20,6 +33,10 @@ export const GetOwnProfileResponseSchema = createApiResponseSchema(z.object({
   longitude: z.number().nullable(),
   email: z.string(),
   isEmailVerified: z.boolean(),
+  createdAt: z.string().transform((str) => new Date(str)),
+  lastTimeActive: z.string().nullable().transform((str) => str ? new Date(str) : null),
+  photos: z.array(UserPhotoSchema),
+  interests: z.array(UserInterestSchema),
 }));
 export type GetOwnProfileResponse = z.infer<typeof GetOwnProfileResponseSchema>;
 
