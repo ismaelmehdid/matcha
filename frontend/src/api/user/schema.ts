@@ -28,13 +28,13 @@ export type GetOwnProfileResponse = z.infer<typeof GetOwnProfileResponseSchema>;
 //===----------------------------------------------------------------------===//
 
 export const UpdateProfileRequestSchema = z.object({
-  firstName: z.string(),
-  lastName: z.string(),
-  gender: z.enum(['male', 'female']),
-  sexualOrientation: z.enum(['straight', 'gay', 'bisexual']),
-  biography: z.string(),
-  latitude: z.number(),
-  longitude: z.number(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  gender: z.enum(['male', 'female']).optional(),
+  sexualOrientation: z.enum(['straight', 'gay', 'bisexual']).optional(),
+  biography: z.string().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 
