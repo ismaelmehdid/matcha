@@ -20,7 +20,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token expires in 7 days
     });
 
-    return { success: true, data: { accessToken }, messageKey: 'SUCCESS_SIGNED_UP' };
+    return { success: true, data: { accessToken: accessToken }, messageKey: 'SUCCESS_SIGNED_UP' };
   }
 
   @Post('sign-in')
@@ -31,7 +31,7 @@ export class AuthController {
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // Refresh token expires in 7 days
     });
-    return { success: true, data: { accessToken }, messageKey: 'SUCCESS_SIGNED_IN' };
+    return { success: true, data: { accessToken, refreshToken }, messageKey: 'SUCCESS_SIGNED_IN' };
   }
 
   @UseGuards(AuthGuard)
@@ -46,7 +46,7 @@ export class AuthController {
       httpOnly: true,
       sameSite: 'strict',
     });
-    return { success: true, data: {}, messageKey: 'SUCCESS_SIGNED_OUT' };
+    return { success: true, messageKey: 'SUCCESS_SIGNED_OUT' };
   }
 
   @Get('refresh-token')
@@ -54,32 +54,34 @@ export class AuthController {
     const refreshToken = req.cookies['refresh_token'];
     if (!refreshToken) throw new CustomHttpException('NO_REFRESH_TOKEN_PROVIDED', 'No refresh token provided', 'ERROR_NO_REFRESH_TOKEN_PROVIDED', HttpStatus.UNAUTHORIZED);
     const { accessToken } = await this.authService.refreshToken(refreshToken);
-    return { success: true, data: { accessToken }, messageKey: 'SUCCESS_TOKEN_REFRESHED' };
+    return { success: true, data: { accessToken: accessToken }, messageKey: 'SUCCESS_TOKEN_REFRESHED' };
   }
 
   @Post('send-password-reset-email')
   async sendPasswordResetEmail(@Body('email') email: string) {
     await this.authService.sendPasswordResetEmail(email);
-    return { success: true, data: {}, messageKey: 'SUCCESS_PASSWORD_RESET_EMAIL_SENT' };
+    return { success: true, messageKey: 'SUCCESS_PASSWORD_RESET_EMAIL_SENT' };
   }
 
   @Post('reset-password')
   async resetPassword(@Body('token') token: string, @Body('password') password: string) {
+    console.log('TOKEN: ', token);
+    console.log('PASSWORD: ', password);
     await this.authService.resetPassword(token, password);
-    return { success: true, data: {}, messageKey: 'SUCCESS_PASSWORD_RESET' };
+    return { success: true, messageKey: 'SUCCESS_PASSWORD_RESET' };
   }
 
   @UseGuards(AuthGuard)
   @Post('send-verify-email')
   async sendVerifyEmail(@CurrentUser('sub') userId: string) {
     await this.authService.sendVerifyEmail(userId);
-    return { success: true, data: {}, messageKey: 'SUCCESS_VERIFY_EMAIL_SENT' };
+    return { success: true, messageKey: 'SUCCESS_VERIFY_EMAIL_SENT' };
   }
 
   @Get('verify-email')
   async verifyEmail(@Req() req: Request) {
     const token = req.query.token as string;
     await this.authService.verifyEmail(token);
-    return { success: true, data: {}, messageKey: 'SUCCESS_EMAIL_VERIFIED' };
+    return { success: true, messageKey: 'SUCCESS_EMAIL_VERIFIED' };
   }
 }

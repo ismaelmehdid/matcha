@@ -10,12 +10,12 @@ import { tokenManager } from "@/utils/tokenManager";
 import { authApi } from "@/api/auth/auth";
 import { useQuery } from "@tanstack/react-query";
 import { userApi } from "@/api/user/user";
-import type { GetOwnProfileResponse } from "@/api/user/schema";
+import type { User } from "@/types/user";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: GetOwnProfileResponse | undefined;
+  user: User | undefined;
   isUserLoading: boolean;
   isUserError: boolean;
   signIn: (accessToken: string) => void;
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     isLoading: isUserLoading,
     isError: isUserError,
-  } = useQuery<GetOwnProfileResponse>({
+  } = useQuery<User>({
     queryKey: ["user"],
     queryFn: userApi.getOwnProfile,
     enabled: isAuthenticated,
@@ -59,12 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await authApi.refreshToken();
-      if (response.success) {
-        tokenManager.setToken(response.data.accessToken);
-        return true;
-      }
-      return false;
+      const { accessToken } = await authApi.refreshToken();
+      tokenManager.setToken(accessToken);
+      return true;
     } catch (err) {
       return false;
     }
@@ -160,6 +157,6 @@ export function useUser() {
     user,
     isLoading: isUserLoading,
     isError: isUserError,
-    isSuccess: !isUserLoading && !isUserError && user?.success,
+    isSuccess: !isUserLoading && !isUserError,
   };
 }

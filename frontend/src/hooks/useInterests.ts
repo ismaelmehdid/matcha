@@ -1,20 +1,16 @@
 import { interestApi } from "@/api/interest/interest";
 import { useQuery } from "@tanstack/react-query";
-import { transformToInterests } from "@/lib/transformers";
 
 export function useInterests() {
-  const { data, isLoading, isError, isSuccess } = useQuery({
+  const query = useQuery({
     queryKey: ['interests'],
-    queryFn: async () => {
-      const response = await interestApi.findAll();
-      return transformToInterests(response);
-    },
+    queryFn: interestApi.findAll,
   });
 
   return {
-    data,
-    isLoading,
-    isError,
-    isSuccess,
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isSuccess: query.isSuccess,
   };
 }

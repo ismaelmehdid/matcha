@@ -1,19 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '../api/user/user';
-import type { UpdateProfileRequest } from '../api/user/schema';
-import type { EmptyResponse, EmptyErrorResponse } from '../api/schema';
 import { toast } from 'sonner';
-import { getToastMessage } from '@/lib/messageMap';
-import { transformToUser } from '@/lib/transformers';
-import type { User } from '@/types/user';
+import { type SexualOrientation, type Gender } from '@/types/user';
 
 export function useCurrentUser() {
-  const query = useQuery<User | null>({
+  const query = useQuery({
     queryKey: ['user'],
-    queryFn: async () => {
-      const response = await userApi.getOwnProfile();
-      return transformToUser(response);
-    },
+    queryFn: userApi.getOwnProfile,
   });
 
   return {
@@ -26,16 +19,14 @@ export function useCurrentUser() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<EmptyResponse, EmptyErrorResponse, UpdateProfileRequest>({
-    mutationFn: userApi.updateProfile,
-    onSuccess: (response) => {
-      if (response.success) {
-        queryClient.invalidateQueries({ queryKey: ['user'] });
-        toast.success(getToastMessage(response.messageKey));
-      }
+  return useMutation<void, Error, { firstName: string, lastName: string, gender: Gender, sexualOrientation: SexualOrientation, biography: string, latitude: number, longitude: number }>({
+    mutationFn: ({ firstName, lastName, gender, sexualOrientation, biography, latitude, longitude }) => userApi.updateProfile(firstName, lastName, gender, sexualOrientation, biography, latitude, longitude),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      toast.success('Profile updated successfully 🎉');
     },
-    onError: (response) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 }

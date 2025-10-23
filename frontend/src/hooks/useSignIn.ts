@@ -3,37 +3,26 @@ import { authApi } from "@/api/auth/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { type SignInRequest } from "@/api/auth/schema";
-import { type EmptyErrorResponse } from "@/api/schema";
-import { getToastMessage } from "@/lib/messageMap";
-import { transformToAuthToken } from "@/lib/transformers";
-import type { AuthToken } from "@/types/user";
+import type { AccessToken } from "@/types/user";
 
 export function useSignIn() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
-  const signInMutation = useMutation<AuthToken, EmptyErrorResponse, SignInRequest>({
-    mutationFn: async (request: SignInRequest) => {
-      const response = await authApi.signIn(request);
-      const authToken = transformToAuthToken(response);
-      if (!authToken) {
-        throw new Error('Failed to transform sign in response');
-      }
-      return authToken;
-    },
-    onSuccess: (authToken: AuthToken) => {
-      signIn(authToken.accessToken);
-      toast.success("Successfully signed in");
+  const signInMutation = useMutation<AccessToken, Error, { username: string, password: string }>({
+    mutationFn: ({ username, password }) => authApi.signIn(username, password),
+    onSuccess: (accessToken: AccessToken) => {
+      signIn(accessToken.accessToken);
+      toast.success('Signed in successfully 🎉');
       navigate("/");
     },
-    onError: (response: EmptyErrorResponse) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
-  const signInUser = (request: SignInRequest) => {
-    signInMutation.mutate(request);
+  const signInUser = ({ username, password }: { username: string, password: string }) => {
+    signInMutation.mutate({ username, password });
   };
 
   return {
@@ -41,6 +30,6 @@ export function useSignIn() {
     isPending: signInMutation.isPending,
     isError: signInMutation.isError,
     isSuccess: signInMutation.isSuccess,
-    data: signInMutation.data, // Now returns AuthToken domain type
+    data: signInMutation.data,
   };
 }

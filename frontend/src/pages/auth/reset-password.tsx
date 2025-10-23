@@ -53,10 +53,7 @@ export function ResetPassword() {
     if (!token) {
       return;
     }
-    resetPassword({
-      token: token,
-      password: data.password,
-    });
+    resetPassword(token, data.password);
   };
 
   if (!token) {

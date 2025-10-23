@@ -1,9 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/api/auth/auth";
 import { toast } from "sonner";
-import { type SendPasswordResetEmailRequest } from "@/api/auth/schema";
-import { type EmptyResponse, type EmptyErrorResponse } from "@/api/schema";
-import { getToastMessage } from "@/lib/messageMap";
 import { useState, useEffect } from "react";
 
 export function useForgotPassword() {
@@ -11,21 +8,19 @@ export function useForgotPassword() {
   const [timeLeft, setTimeLeft] = useState(60);
 
   const forgotPasswordMutation = useMutation({
-    mutationFn: (request: SendPasswordResetEmailRequest) => authApi.sendPasswordResetEmail(request),
-    onSuccess: (response: EmptyResponse) => {
-      if (response.success) {
-        toast.success(getToastMessage(response.messageKey));
-        setIsSentButtonDisabled(true);
-        setTimeLeft(60);
-      }
+    mutationFn: (email: string) => authApi.sendPasswordResetEmail(email),
+    onSuccess: () => {
+      toast.success('Password reset email sent successfully 🎉');
+      setIsSentButtonDisabled(true);
+      setTimeLeft(60);
     },
-    onError: (response: EmptyErrorResponse) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
-  const sendPasswordResetEmail = (request: SendPasswordResetEmailRequest) => {
-    forgotPasswordMutation.mutate(request);
+  const sendPasswordResetEmail = (email: string) => {
+    forgotPasswordMutation.mutate(email);
   };
 
   // Timer effect for resend button

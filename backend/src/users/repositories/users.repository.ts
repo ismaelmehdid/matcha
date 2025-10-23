@@ -112,6 +112,7 @@ export class UsersRepository {
   async findByEmail(email: string): Promise<User | null> {
     try {
       const result = await this.db.query<User>(`${USER_BASE_QUERY} WHERE u.email = $1 GROUP BY u.id`, [email]);
+      console.log('EMAIL RESULT: ', result.rows);
       return result.rows[0] || null;
     } catch (error) {
       console.error(error);

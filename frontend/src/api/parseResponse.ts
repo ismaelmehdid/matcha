@@ -2,11 +2,12 @@ import { z } from 'zod';
 
 export async function parseApiResponse<T>(promise: Promise<any>, schema: z.ZodSchema<T>): Promise<T> {
   const raw = await promise;
+  console.log('RAW: ', raw);
   const result = schema.safeParse(raw);
+  console.log('RESULT: ', result);
   if (!result.success) {
-    console.error('API response validation failed', result.error);
-    throw new Error('Invalid API response structure');
+    console.error('ERROR: ', result.error);
+    throw new Error("Failed to handle the service response. Please try again later.");
   }
-
   return result.data;
 }

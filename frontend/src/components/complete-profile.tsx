@@ -34,6 +34,8 @@ import { Camera, XIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
+import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fileSchema = z
   .instanceof(File)
@@ -160,14 +162,14 @@ function PhotoUploadGrid({
   );
 }
 
-export function CompleteProfileForm() {
+export function CompleteProfileForm({ user: _user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
-
+  const { signOut } = useAuth();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      gender: "" as any,
-      sexualOrientation: "" as any,
+      gender: undefined,
+      sexualOrientation: undefined,
       biography: "",
       interests: [],
       photos: [],
@@ -363,6 +365,10 @@ export function CompleteProfileForm() {
               <Button className="mt-4 w-full" type="submit">
                 Complete Profile
               </Button>
+              <Separator className="my-4 w-full" />
+              <Button variant="destructive" onClick={() => signOut()}>
+                Sign Out
+              </Button>
             </Field>
           </FieldGroup>
         </form>
@@ -371,11 +377,12 @@ export function CompleteProfileForm() {
   );
 }
 
-export function CompleteProfile({ user: _user }: { user: User }) {
+export function CompleteProfile({ user }: { user: User }) {
+  console.log("CompleteProfile - user:", user);
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-lg">
-        <CompleteProfileForm />
+        <CompleteProfileForm user={user} />
       </div>
     </div>
   );

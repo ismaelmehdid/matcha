@@ -2,8 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/auth/auth';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import type { EmptyErrorResponse, EmptyResponse } from '@/api/schema';
-import { getToastMessage } from '@/lib/messageMap';
 
 export function useSendVerifyEmail() {
   const queryClient = useQueryClient();
@@ -12,14 +10,14 @@ export function useSendVerifyEmail() {
 
   const sendVerifyEmailMutation = useMutation({
     mutationFn: authApi.sendVerifyEmail,
-    onSuccess: (response: EmptyResponse) => {
+    onSuccess: () => {
       setIsSentButtonDisabled(true);
       setTimeLeft(60);
       queryClient.invalidateQueries({ queryKey: ["user"] });
-      toast.success(getToastMessage(response.messageKey));
+      toast.success('Verify email sent successfully 🎉');
     },
-    onError: (response: EmptyErrorResponse) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 

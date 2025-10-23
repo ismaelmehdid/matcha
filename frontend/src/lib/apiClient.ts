@@ -21,7 +21,8 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.data) {
-      return Promise.reject(error.response.data);
+      // Return the error response data directly so it can be parsed by our schema
+      return error.response.data;
     }
     return Promise.reject(error);
   }

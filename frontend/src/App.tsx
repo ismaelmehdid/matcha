@@ -1,7 +1,7 @@
 import { Routes, Navigate } from "react-router";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Dashboard } from "./pages/dashboard";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { Spinner } from "./components/ui/spinner";
 import { AuthLayout } from "./pages/auth/layout";
@@ -13,7 +13,7 @@ import { ResetPassword } from "./pages/auth/reset-password";
 import { VerifyEmail } from "./pages/auth/verify-email";
 
 function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useUser();
+  const { user, isLoading, isSuccess, isError } = useUser();
 
   if (isLoading) {
     return (
@@ -23,7 +23,12 @@ function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (user?.success && !user.data?.isEmailVerified) {
+  if (isError) {
+    toast.error("Failed to retrieve user data. Please sign in again.");
+    return <Navigate to="/auth/sign-in" replace />;
+  }
+
+  if (isSuccess && user && !user.isEmailVerified) {
     return <Navigate to="/auth/send-verify-email" replace />;
   }
 

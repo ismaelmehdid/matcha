@@ -24,7 +24,7 @@ export function SendVerifyEmail() {
   };
 
   useEffect(() => {
-    if (user?.success && user.data?.isEmailVerified) {
+    if (isSuccess && user && user.isEmailVerified) {
       navigate("/", { replace: true });
     }
   }, [user, navigate]);
@@ -35,15 +35,15 @@ export function SendVerifyEmail() {
         <Spinner />
       </div>
     );
-  } else if (isSuccess && user?.success) {
+  } else if (isSuccess && user) {
     return (
       <form className="p-6 md:p-8" onSubmit={handleSubmit(onSubmit)}>
         <FieldGroup>
           <div className="flex flex-col items-center gap-2 text-center">
             <h1 className="text-2xl font-bold">Verify your email</h1>
             <p className="text-muted-foreground">
-              Click send to send a verification link to {user?.data?.email}. If
-              you don't see it within 5 minutes, please check your spam or click
+              Click send to send a verification link to {user.email}. If you
+              don't see it within 5 minutes, please check your spam or click
               send again.
             </p>
           </div>

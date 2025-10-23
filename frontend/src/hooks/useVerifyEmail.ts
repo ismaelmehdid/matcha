@@ -2,27 +2,25 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { getToastMessage } from "@/lib/messageMap";
-import { type EmptyResponse } from "@/api/schema";
 import { useCallback } from "react";
 
 export function useVerifyEmail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const verifyEmailMutation = useMutation({
-    mutationFn: (token: string) => authApi.verifyEmail({ verifyEmailToken: token }),
-    onSuccess: async (response: EmptyResponse) => {
-      toast.success(getToastMessage(response.messageKey));
+    mutationFn: (verifyEmailToken: string) => authApi.verifyEmail(verifyEmailToken),
+    onSuccess: async () => {
+      toast.success('Email verified successfully 🎉');
       await queryClient.invalidateQueries({ queryKey: ["user"] });
       navigate("/");
     },
-    onError: (response: EmptyResponse) => { // TODO: Check if this is correct
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
-  const verifyEmail = useCallback((token: string) => {
-    verifyEmailMutation.mutate(token);
+  const verifyEmail = useCallback((verifyEmailToken: string) => {
+    verifyEmailMutation.mutate(verifyEmailToken);
   }, [verifyEmailMutation]);
 
   return {

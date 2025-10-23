@@ -1,29 +1,25 @@
 import { authApi } from "@/api/auth/auth";
-import { type SignUpRequest, type SignUpResponse } from "@/api/auth/schema";
 import { toast } from "sonner";
-import { getToastMessage } from "@/lib/messageMap";
-import { type EmptyErrorResponse } from "@/api/schema";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import type { AccessToken } from "@/types/user";
 
 export function useSignUp() {
   const { signIn } = useAuth();
 
   const signUpMutation = useMutation({
-    mutationFn: (data: SignUpRequest) => authApi.signUp(data),
-    onSuccess: (response: SignUpResponse) => {
-      if (response.success) {
-        signIn(response.data.accessToken);
-        toast.success(getToastMessage(response.messageKey));
-      }
+    mutationFn: ({ email, password, firstName, lastName, username }: { email: string, password: string, firstName: string, lastName: string, username: string }) => authApi.signUp(email, password, firstName, lastName, username),
+    onSuccess: (accessToken: AccessToken) => {
+      signIn(accessToken.accessToken);
+      toast.success('Signed up successfully 🎉');
     },
-    onError: (response: EmptyErrorResponse) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
-  const signUp = (data: SignUpRequest) => {
-    signUpMutation.mutate(data);
+  const signUp = ({ email, password, firstName, lastName, username }: { email: string, password: string, firstName: string, lastName: string, username: string }) => {
+    signUpMutation.mutate({ email, password, firstName, lastName, username });
   };
 
   return {

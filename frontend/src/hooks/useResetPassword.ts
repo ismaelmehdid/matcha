@@ -2,28 +2,23 @@ import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/api/auth/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { type ResetPasswordRequest } from "@/api/auth/schema";
-import { type EmptyResponse, type EmptyErrorResponse } from "@/api/schema";
-import { getToastMessage } from "@/lib/messageMap";
 
 export function useResetPassword() {
   const navigate = useNavigate();
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (request: ResetPasswordRequest) => authApi.resetPassword(request),
-    onSuccess: (response: EmptyResponse) => {
-      if (response.success) {
-        toast.success(getToastMessage(response.messageKey));
-        navigate("/auth/sign-in");
-      }
+    mutationFn: ({ token, password }: { token: string, password: string }) => authApi.resetPassword(token, password),
+    onSuccess: () => {
+      toast.success('Password reset successfully 🎉');
+      navigate("/auth/sign-in");
     },
-    onError: (response: EmptyErrorResponse) => {
-      toast.error(getToastMessage(response.messageKey));
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
-  const resetPassword = (request: ResetPasswordRequest) => {
-    resetPasswordMutation.mutate(request);
+  const resetPassword = (token: string, password: string) => {
+    resetPasswordMutation.mutate({ token, password });
   };
 
   return {
