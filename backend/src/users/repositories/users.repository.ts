@@ -2,17 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
-
-enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
-
-enum SexualOrientation {
-  STRAIGHT = 'straight',
-  GAY = 'gay',
-  BISEXUAL = 'bisexual',
-}
+import { Gender, SexualOrientation } from '../enums/user.enums';
 
 export interface UserPhoto {
   id: string;
@@ -166,5 +156,65 @@ export class UsersRepository {
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  async updateProfile(userId: string, updates: Partial<{
+    firstName: string;
+    lastName: string;
+    gender: Gender;
+    sexualOrientation: SexualOrientation;
+    biography: string;
+  }>): Promise<User> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    // Map DTO fields to database columns
+    const fieldMap: Record<string, string> = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      gender: 'gender',
+      sexualOrientation: 'sexual_orientation',
+      biography: 'biography',
+    };
+
+    // Build update fields dynamically
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined && fieldMap[key]) {
+        fields.push(`${fieldMap[key]} = $${paramIndex++}`);
+        values.push(value);
+      }
+    });
+
+    if (fields.length === 0) {
+      // No updates provided - this is a bad request
+      throw new CustomHttpException(
+        'NO_UPDATE_FIELDS',
+        'No fields provided for update',
+        'ERROR_NO_UPDATE_FIELDS',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    values.push(userId);
+    const query = `
+      UPDATE users
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await this.db.query<User>(query, values);
+
+    if (!result.rows[0]) {
+      throw new CustomHttpException(
+        'USER_NOT_FOUND',
+        `User with id ${userId} not found`,
+        'ERROR_USER_NOT_FOUND',
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    return result.rows[0];
   }
 }

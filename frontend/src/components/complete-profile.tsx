@@ -34,6 +34,7 @@ import { Camera, XIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
+import { useUpdateProfile } from "@/hooks/useUserProfile";
 
 const fileSchema = z
   .instanceof(File)
@@ -56,8 +57,11 @@ const formSchema = z.object({
     .string()
     .min(20, "Biography must be at least 20 characters")
     .max(500, "Biography must be less than 500 characters"),
-  interests: z.array(z.number()).min(1, "At least one interest is required"),
-  photos: z.array(fileSchema).min(1, "At least one photo is required"),
+  // TODO: Make these required when backend endpoints are ready
+  // interests: z.array(z.number()).min(1, "At least one interest is required"),
+  // photos: z.array(fileSchema).min(1, "At least one photo is required"),
+  interests: z.array(z.number()).optional(),
+  photos: z.array(fileSchema).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -162,6 +166,7 @@ function PhotoUploadGrid({
 
 export function CompleteProfileForm() {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
+  const { mutate: updateProfile, isPending } = useUpdateProfile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -206,8 +211,13 @@ export function CompleteProfileForm() {
   };
 
   const onSubmit = (data: FormData) => {
-    console.log("Form submitted:", data);
-    // TODO: Call the API to update the profile
+    // TODO: Add photo upload and interests endpoints on backend
+    // For now, only send basic profile fields
+    updateProfile({
+      gender: data.gender,
+      sexualOrientation: data.sexualOrientation,
+      biography: data.biography,
+    });
   };
 
   return (
@@ -360,7 +370,11 @@ export function CompleteProfileForm() {
                   {errors.photos.message}
                 </p>
               )}
-              <Button className="mt-4 w-full" type="submit">
+              <Button
+                className="mt-4 w-full"
+                type="submit"
+                disabled={isPending}
+              >
                 Complete Profile
               </Button>
             </Field>

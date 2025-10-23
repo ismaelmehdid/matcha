@@ -22,14 +22,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
       };
       messageKey = exception.messageKey;
     } else if (exception instanceof HttpException) {
-      // Handle standard NestJS HTTP exceptions
+      // Handle standard NestJS HTTP exceptions (including ValidationPipe errors)
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      errorResponse = {
-        code: HttpStatus[status], // e.g., 'NOT_FOUND'
-        details: typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse as any).message,
-      };
-      messageKey = `ERROR_${HttpStatus[status]}`;
+
+      // Check if this is a validation error (400 Bad Request with validation messages)
+      if (status === HttpStatus.BAD_REQUEST && typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
+        const messages = exceptionResponse.message;
+        const validationDetails = Array.isArray(messages) ? messages.join(', ') : String(messages);
+
+        errorResponse = {
+          code: 'VALIDATION_FAILED',
+          details: validationDetails,
+        };
+        messageKey = 'ERROR_VALIDATION_FAILED';
+      } else {
+        errorResponse = {
+          code: HttpStatus[status], // e.g., 'NOT_FOUND'
+          details: typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse as any).message,
+        };
+        messageKey = `ERROR_${HttpStatus[status]}`;
+      }
     } else {
       // Handle unexpected errors
       status = HttpStatus.INTERNAL_SERVER_ERROR;

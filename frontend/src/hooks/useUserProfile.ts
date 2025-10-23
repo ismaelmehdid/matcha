@@ -7,9 +7,11 @@ import { getToastMessage } from '@/lib/messageMap';
 import { transformToUser } from '@/lib/transformers';
 import type { User } from '@/types/user';
 
+// TODO: change query key to 'user' when backend is ready
+// (temporary 'v2' key to avoid conflicts with old implementation)
 export function useCurrentUser() {
   const query = useQuery<User | null>({
-    queryKey: ['user'],
+    queryKey: ['user', 'v2'],
     queryFn: async () => {
       const response = await userApi.getOwnProfile();
       return transformToUser(response);
@@ -30,7 +32,7 @@ export function useUpdateProfile() {
     mutationFn: userApi.updateProfile,
     onSuccess: (response) => {
       if (response.success) {
-        queryClient.invalidateQueries({ queryKey: ['user'] });
+        queryClient.invalidateQueries({ queryKey: ['user', 'v2'] });
         toast.success(getToastMessage(response.messageKey));
       }
     },
