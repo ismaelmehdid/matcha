@@ -36,6 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUpdateProfile } from "@/hooks/useUserProfile";
 
 const fileSchema = z
   .instanceof(File)
@@ -58,8 +59,11 @@ const formSchema = z.object({
     .string()
     .min(20, "Biography must be at least 20 characters")
     .max(500, "Biography must be less than 500 characters"),
-  interests: z.array(z.number()).min(1, "At least one interest is required"),
-  photos: z.array(fileSchema).min(1, "At least one photo is required"),
+  // TODO: Make these required when backend endpoints are ready
+  // interests: z.array(z.number()).min(1, "At least one interest is required"),
+  // photos: z.array(fileSchema).min(1, "At least one photo is required"),
+  interests: z.array(z.number()).optional(),
+  photos: z.array(fileSchema).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -162,9 +166,11 @@ function PhotoUploadGrid({
   );
 }
 
-export function CompleteProfileForm({ user: _user }: { user: User }) {
+export function CompleteProfileForm({ user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
   const { signOut } = useAuth();
+  const { mutate: updateProfile, isPending } = useUpdateProfile();
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -208,8 +214,14 @@ export function CompleteProfileForm({ user: _user }: { user: User }) {
   };
 
   const onSubmit = (data: FormData) => {
-    console.log("Form submitted:", data);
-    // TODO: Call the API to update the profile
+    // TODO: Add photo upload and interests endpoints on backend
+    // For now, only send basic profile fields
+    updateProfile({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      latitude: user.latitude,
+      longitude: user.longitude,
+    });
   };
 
   return (
@@ -362,7 +374,11 @@ export function CompleteProfileForm({ user: _user }: { user: User }) {
                   {errors.photos.message}
                 </p>
               )}
-              <Button className="mt-4 w-full" type="submit">
+              <Button
+                className="mt-4 w-full"
+                type="submit"
+                disabled={isPending}
+              >
                 Complete Profile
               </Button>
               <Separator className="my-4 w-full" />
@@ -378,7 +394,6 @@ export function CompleteProfileForm({ user: _user }: { user: User }) {
 }
 
 export function CompleteProfile({ user }: { user: User }) {
-  console.log("CompleteProfile - user:", user);
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-lg">

@@ -1,7 +1,8 @@
 import { Routes, Navigate } from "react-router";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Dashboard } from "./pages/dashboard";
-import { toast, Toaster } from "sonner";
+import { Profile } from "./pages/profile";
+import { Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { Spinner } from "./components/ui/spinner";
 import { AuthLayout } from "./pages/auth/layout";
@@ -11,6 +12,7 @@ import { ForgotPassword } from "./pages/auth/forgot-password";
 import { SendVerifyEmail } from "./pages/auth/send-verify-email";
 import { ResetPassword } from "./pages/auth/reset-password";
 import { VerifyEmail } from "./pages/auth/verify-email";
+import { toast } from "sonner";
 
 function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isSuccess, isError } = useUser();
@@ -151,6 +153,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />
