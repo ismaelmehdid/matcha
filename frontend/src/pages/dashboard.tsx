@@ -7,15 +7,17 @@ import type { User } from "@/types/user";
 import { CompleteProfile } from "@/components/complete-profile";
 
 function UserHasCompletedProfile(user: User): boolean {
+  // TODO: Add photos and interests check when backend endpoints are ready
   return (
     user.gender !== null &&
     user.sexualOrientation !== null &&
-    user.biography !== null &&
-    user.photos &&
-    user.photos.length > 0 &&
-    user.photos.some((photo) => photo.is_profile_pic) &&
-    user.interests &&
-    user.interests.length > 0
+    user.biography !== null
+    // user.biography !== null &&
+    // user.photos &&
+    // user.photos.length > 0 &&
+    // user.photos.some((photo) => photo.is_profile_pic) &&
+    // user.interests &&
+    // user.interests.length > 0
   );
 }
 
