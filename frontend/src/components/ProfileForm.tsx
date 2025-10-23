@@ -24,7 +24,10 @@ const profileSchema = z.object({
     }),
   gender: z.enum(["male", "female"], { message: "Please select a gender" }),
   sexualOrientation: z.enum(["straight", "gay", "bisexual"], { message: "Please select your sexual orientation" }),
-  biography: z.string().max(500, "Biography must be at most 500 characters").optional(),
+  biography: z
+    .string()
+    .min(20, "Biography must be at least 20 characters")
+    .max(500, "Biography must be less than 500 characters"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -46,6 +49,8 @@ export function ProfileForm({ user }: ProfileFormProps) {
       biography: user.success && user.data.biography ? user.data.biography : "",
     },
   });
+
+  const { isDirty } = form.formState;
 
   const onSubmit = form.handleSubmit((data: ProfileFormData) => {
     updateProfile({
@@ -147,14 +152,14 @@ export function ProfileForm({ user }: ProfileFormProps) {
       </div>
 
       <div className="flex gap-4">
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending || !isDirty}>
           {isPending ? "Saving..." : "Save Changes"}
         </Button>
         <Button
           type="button"
           variant="secondary"
           onClick={() => form.reset()}
-          disabled={isPending}
+          disabled={isPending || !isDirty}
         >
           Cancel
         </Button>
