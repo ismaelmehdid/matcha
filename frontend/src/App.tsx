@@ -1,6 +1,7 @@
 import { Routes, Navigate } from "react-router";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Dashboard } from "./pages/dashboard";
+import { Profile } from "./pages/profile";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { Spinner } from "./components/ui/spinner";
@@ -146,6 +147,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />
