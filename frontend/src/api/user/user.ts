@@ -1,7 +1,7 @@
 import apiClient from '@/lib/apiClient';
 import { parseApiResponse } from '../parseResponse';
 import { createApiResponseSchema } from '../schema';
-import { UserSchema, type SexualOrientation, type Gender, type User } from '@/types/user';
+import { UserSchema, type SexualOrientation, type Gender, type User, type Profile, ProfileSchema, type Matches, MatchesSchema } from '@/types/user';
 import { getToastMessage } from '@/lib/messageMap';
 
 interface UpdateProfileRequest {
@@ -29,5 +29,13 @@ export const userApi = {
       throw new Error(getToastMessage(response.messageKey));
     }
     return response.data;
-  }
+  },
+
+  findAllMatches: async (): Promise<Matches> => {
+    const response = await parseApiResponse(apiClient.get('/users/matches'), createApiResponseSchema(MatchesSchema));
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+    return response.data;
+  },
 };

@@ -3,9 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileForm } from "@/components/ProfileForm";
 import { AppLayout } from "@/components/layouts/AppLayout";
+import { useAllMatches } from "@/hooks/useAllMatches";
 
 export function Profile() {
   const { user, isLoading, isSuccess } = useUser();
+  const {
+    data: allMatches,
+    isLoading: isAllMatchesLoading,
+    isSuccess: isAllMatchesSuccess,
+  } = useAllMatches();
 
   if (isLoading) {
     return (
@@ -35,11 +41,11 @@ export function Profile() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
-        <p className="text-muted-foreground mb-6">
-          Keep your profile up to date
-        </p>
+      <div className="max-w-5xl mx-auto flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold">Your Profile</h1>
+          <p className="text-muted-foreground">Keep your profile up to date</p>
+        </div>
 
         <Card>
           <CardHeader>
@@ -50,7 +56,7 @@ export function Profile() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card>
           <CardHeader>
             <CardTitle>Account Details</CardTitle>
           </CardHeader>

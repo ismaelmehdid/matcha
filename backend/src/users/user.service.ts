@@ -6,10 +6,11 @@ import { UsersRepository } from './repositories/users.repository';
 import { PublicUserResponseDto, PrivateUserResponseDto } from './dto/user-response.dto';
 import { User } from './repositories/users.repository';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
+import { LikesRepository } from './repositories/likes.repository';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly usersRepository: UsersRepository) { }
+  constructor(private readonly usersRepository: UsersRepository, private readonly likesRepository: LikesRepository) { }
 
   private mapUserToPublicUserResponseDto(user: User): PublicUserResponseDto | null {
     if (!user) return null;
@@ -47,6 +48,12 @@ export class UserService {
       interests: user.interests,
       photos: user.photos,
     };
+  }
+
+  async findPublicProfileById(id: string): Promise<PublicUserResponseDto | null> {
+    const user: User | null = await this.usersRepository.findById(id);
+    if (!user) return null;
+    return this.mapUserToPublicUserResponseDto(user);
   }
 
   async findByUsername(username: string): Promise<PrivateUserResponseDto | null> {
@@ -108,5 +115,20 @@ export class UserService {
       biography: updateProfileDto.biography,
     });
     return this.mapUserToPrivateUserResponseDto(user);
+  }
+
+  async findAllMatches(userId: string): Promise<PublicUserResponseDto[]> {
+    const usersWhoUserLiked: string[] = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+    const usersWhoLikedUser: string[] = await this.likesRepository.findAllUsersWhoLikedUserId(userId);
+    const usersWhoLikedUserSet = new Set(usersWhoLikedUser);
+    const matches = usersWhoUserLiked.filter(user => usersWhoLikedUserSet.has(user));
+    const matchesPublic: PublicUserResponseDto[] = [];
+    for (const match of matches) {
+      const user = await this.findPublicProfileById(match);
+      if (user) {
+        matchesPublic.push(user);
+      }
+    }
+    return matchesPublic;
   }
 }

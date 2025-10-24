@@ -2,7 +2,14 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { Home, User, Search, Heart, MessageCircle, type LucideIcon } from "lucide-react";
+import {
+  Home,
+  User,
+  Search,
+  Heart,
+  MessageCircle,
+  type LucideIcon,
+} from "lucide-react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -28,7 +35,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     { path: "/profile", label: "Profile", icon: User },
     { path: "/browse", label: "Browse", icon: Search, disabled: true },
     { path: "/matches", label: "Matches", icon: Heart, disabled: true },
-    { path: "/chat", label: "Chat", icon: MessageCircle, disabled: true },
+    { path: "/chat", label: "Chat", icon: MessageCircle, disabled: false },
   ];
 
   return (
@@ -82,12 +89,10 @@ export function AppLayout({ children }: AppLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-4 py-8 pb-24 md:pb-8">
-        {children}
-      </main>
+      <main className="flex-1 px-4 p-6 md:pb-8">{children}</main>
 
       {/* Footer - Hidden on mobile due to bottom nav */}
-      <footer className="hidden md:block border-t bg-card py-3">
+      <footer className="hidden md:block border-t bg-card py-3 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
             &copy; 2025 Matcha. Made by{" "}
@@ -131,7 +136,11 @@ export function AppLayout({ children }: AppLayoutProps) {
                 } ${link.disabled ? "pointer-events-none" : ""}`}
               >
                 <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>
+                <span
+                  className={`text-[10px] ${
+                    isActive ? "font-semibold" : "font-medium"
+                  }`}
+                >
                   {link.label}
                 </span>
               </Link>

@@ -26,4 +26,11 @@ export class UserController {
     const user = await this.userService.updateProfile(userId, updateProfileDto);
     return { success: true, data: user, messageKey: 'SUCCESS_PROFILE_UPDATED' };
   }
+
+  @Get('matches')
+  @UseGuards(AuthGuard)
+  async findAllMatches(@CurrentUser('sub') userId: string) {
+    const matches = await this.userService.findAllMatches(userId);
+    return { success: true, data: matches, messageKey: 'SUCCESS_FIND_ALL_MATCHES' };
+  }
 }

@@ -44,6 +44,24 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
+export const ProfileSchema = z.object({
+  firstName: z.string(),
+  lastName: z.string(),
+  gender: GenderSchema.nullable(),
+  biography: z.string().nullable(),
+  fameRating: z.number(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  lastTimeActive: z.string().nullable().transform((str) => str ? new Date(str) : null),
+  createdAt: z.string().transform((str) => new Date(str)),
+  photos: PhotosSchema,
+  interests: InterestsSchema,
+});
+export type Profile = z.infer<typeof ProfileSchema>;
+
+export const MatchesSchema = z.array(ProfileSchema);
+export type Matches = z.infer<typeof MatchesSchema>;
+
 export const RefreshTokenSchema = z.object({
   refreshToken: z.string(),
 });

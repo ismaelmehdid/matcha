@@ -5,7 +5,7 @@ import { Profile } from "./pages/profile";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { Spinner } from "./components/ui/spinner";
-import { AuthLayout } from "./pages/auth/layout";
+import { AuthLayout } from "./components/layouts/AuthLayout";
 import { Signin } from "./pages/auth/sign-in";
 import { Signup } from "./pages/auth/sign-up";
 import { ForgotPassword } from "./pages/auth/forgot-password";
@@ -14,6 +14,7 @@ import { ResetPassword } from "./pages/auth/reset-password";
 import { VerifyEmail } from "./pages/auth/verify-email";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
+import { Chat } from "./pages/chat";
 
 function EmailVerificationGuard({ children }: { children: ReactNode }) {
   const { user, isLoading, isSuccess, isError } = useUser();
@@ -162,6 +163,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Chat />
               </ProtectedRoute>
             }
           />
