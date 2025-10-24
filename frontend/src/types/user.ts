@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+export const InterestSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+export type Interest = z.infer<typeof InterestSchema>;
+
+export const InterestsSchema = z.array(InterestSchema);
+export type Interests = z.infer<typeof InterestsSchema>;
+
 export const GenderSchema = z.enum(['male', 'female']);
 export type Gender = z.infer<typeof GenderSchema>;
 export const SexualOrientationSchema = z.enum(['straight', 'gay', 'bisexual']);
@@ -11,6 +20,9 @@ export const PhotoSchema = z.object({
   is_profile_pic: z.boolean(),
 });
 export type Photo = z.infer<typeof PhotoSchema>;
+
+export const PhotosSchema = z.array(PhotoSchema);
+export type Photos = z.infer<typeof PhotosSchema>;
 
 export const UserSchema = z.object({
   id: z.number(),
@@ -27,11 +39,8 @@ export const UserSchema = z.object({
   isEmailVerified: z.boolean(),
   createdAt: z.string().transform((str) => new Date(str)),
   lastTimeActive: z.string().nullable().transform((str) => str ? new Date(str) : null),
-  photos: z.array(PhotoSchema),
-  interests: z.array(z.object({
-    id: z.number(),
-    name: z.string(),
-  })),
+  photos: PhotosSchema,
+  interests: InterestsSchema,
 });
 export type User = z.infer<typeof UserSchema>;
 

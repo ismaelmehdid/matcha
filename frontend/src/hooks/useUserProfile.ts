@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '../api/user/user';
 import { toast } from 'sonner';
-import { type SexualOrientation, type Gender } from '@/types/user';
-import type { UpdateProfileRequest } from '@/api/user/schema';
+import type { User } from '@/types/user';
 
 // TODO: change query key to 'user' when backend is ready
 // (temporary 'v2' key to avoid conflicts with old implementation)
@@ -22,13 +21,11 @@ export function useCurrentUser() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<EmptyResponse, EmptyErrorResponse, UpdateProfileRequest>({
+  return useMutation({
     mutationFn: userApi.updateProfile,
-    onSuccess: (response) => {
-      if (response.success) {
-        queryClient.invalidateQueries({ queryKey: ['user', 'v2'] });
-        toast.success(getToastMessage(response.messageKey));
-      }
+    onSuccess: (user: User) => {
+      queryClient.setQueryData(['user', 'v2'], user);
+      toast.success('Profile updated successfully 🎉');
     },
     onError: (error) => {
       toast.error(error.message);

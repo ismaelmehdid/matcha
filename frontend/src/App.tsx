@@ -13,8 +13,9 @@ import { SendVerifyEmail } from "./pages/auth/send-verify-email";
 import { ResetPassword } from "./pages/auth/reset-password";
 import { VerifyEmail } from "./pages/auth/verify-email";
 import { toast } from "sonner";
+import type { ReactNode } from "react";
 
-function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
+function EmailVerificationGuard({ children }: { children: ReactNode }) {
   const { user, isLoading, isSuccess, isError } = useUser();
 
   if (isLoading) {
@@ -37,7 +38,7 @@ function EmailVerificationGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -55,7 +56,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <EmailVerificationGuard>{children}</EmailVerificationGuard>;
 }
 
-function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
+function AuthenticatedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -73,7 +74,7 @@ function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
+function PublicRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {

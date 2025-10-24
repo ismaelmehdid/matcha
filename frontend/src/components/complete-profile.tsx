@@ -57,7 +57,7 @@ const formSchema = z.object({
     }),
   biography: z
     .string()
-    .min(20, "Biography must be at least 20 characters")
+    .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
   // TODO: Make these required when backend endpoints are ready
   // interests: z.array(z.number()).min(1, "At least one interest is required"),
@@ -174,11 +174,11 @@ export function CompleteProfileForm({ user }: { user: User }) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      gender: undefined,
-      sexualOrientation: undefined,
-      biography: "",
-      interests: [],
-      photos: [],
+      gender: user.gender ?? undefined,
+      sexualOrientation: user.sexualOrientation ?? undefined,
+      biography: user.biography ?? "",
+      interests: user.interests.map((interest) => interest.id),
+      photos: [], // TODO: Once photos hosting is implemented, handle photos already uploaded by the user here if any
     },
   });
 
@@ -217,10 +217,9 @@ export function CompleteProfileForm({ user }: { user: User }) {
     // TODO: Add photo upload and interests endpoints on backend
     // For now, only send basic profile fields
     updateProfile({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      latitude: user.latitude,
-      longitude: user.longitude,
+      gender: data.gender,
+      sexualOrientation: data.sexualOrientation,
+      biography: data.biography,
     });
   };
 
@@ -242,7 +241,10 @@ export function CompleteProfileForm({ user }: { user: User }) {
                 name="gender"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select your gender" />
                     </SelectTrigger>
@@ -265,7 +267,10 @@ export function CompleteProfileForm({ user }: { user: User }) {
                 name="sexualOrientation"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select your sexual orientation" />
                     </SelectTrigger>

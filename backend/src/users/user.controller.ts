@@ -24,7 +24,6 @@ export class UserController {
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     const user = await this.userService.updateProfile(userId, updateProfileDto);
-    const response = { success: true, data: user, messageKey: 'SUCCESS_PROFILE_UPDATED' };
-    return response;
+    return { success: true, data: user, messageKey: 'SUCCESS_PROFILE_UPDATED' };
   }
 }

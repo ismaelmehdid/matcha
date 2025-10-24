@@ -102,7 +102,6 @@ export class UsersRepository {
   async findByEmail(email: string): Promise<User | null> {
     try {
       const result = await this.db.query<User>(`${USER_BASE_QUERY} WHERE u.email = $1 GROUP BY u.id`, [email]);
-      console.log('EMAIL RESULT: ', result.rows);
       return result.rows[0] || null;
     } catch (error) {
       console.error(error);
@@ -199,23 +198,43 @@ export class UsersRepository {
 
     values.push(userId);
     const query = `
-      UPDATE users
-      SET ${fields.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING *
+      WITH updated_user AS (
+        UPDATE users
+        SET ${fields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      )
+      SELECT u.*,
+        COALESCE(
+          (SELECT jsonb_agg(jsonb_build_object('id', up.id, 'url', up.url, 'is_profile_pic', up.is_profile_pic))
+            FROM user_photos up
+            WHERE up.user_id = u.id),
+          '[]'::jsonb
+        ) AS photos,
+        COALESCE(
+          (SELECT jsonb_agg(jsonb_build_object('id', i.id, 'name', i.name))
+            FROM user_interests ui
+            JOIN interests i ON ui.interest_id = i.id
+            WHERE ui.user_id = u.id),
+          '[]'::jsonb
+        ) AS interests
+      FROM updated_user u;
     `;
 
-    const result = await this.db.query<User>(query, values);
-
-    if (!result.rows[0]) {
-      throw new CustomHttpException(
-        'USER_NOT_FOUND',
-        `User with id ${userId} not found`,
-        'ERROR_USER_NOT_FOUND',
-        HttpStatus.NOT_FOUND
-      );
+    try {
+      const result = await this.db.query<User>(query, values);
+      if (!result) {
+        throw new CustomHttpException(
+          'USER_NOT_FOUND',
+          `User with id ${userId} not found`,
+          'ERROR_USER_NOT_FOUND',
+          HttpStatus.NOT_FOUND
+        );
+      }
+      return result.rows[0];
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    return result.rows[0];
   }
 }

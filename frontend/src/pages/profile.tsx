@@ -5,7 +5,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { AppLayout } from "@/components/layouts/AppLayout";
 
 export function Profile() {
-  const { user, isLoading } = useUser();
+  const { user, isLoading, isSuccess } = useUser();
 
   if (isLoading) {
     return (
@@ -23,10 +23,12 @@ export function Profile() {
     );
   }
 
-  if (!user.success) {
+  if (!isSuccess) {
     return (
       <div className="text-center py-8">
-        <p className="text-destructive">Failed to load profile data from the server.</p>
+        <p className="text-destructive">
+          Failed to load profile data from the server.
+        </p>
       </div>
     );
   }
@@ -35,7 +37,9 @@ export function Profile() {
     <AppLayout>
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
-        <p className="text-muted-foreground mb-6">Keep your profile up to date</p>
+        <p className="text-muted-foreground mb-6">
+          Keep your profile up to date
+        </p>
 
         <Card>
           <CardHeader>
@@ -54,20 +58,20 @@ export function Profile() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Username:</span>
-                <span className="font-medium">{user.data.username}</span>
+                <span className="font-medium">{user.username}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Email:</span>
-                <span className="font-medium">{user.data.email}</span>
+                <span className="font-medium">{user.email}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Email Status:</span>
                 <span
                   className={`font-medium ${
-                    user.data.isEmailVerified ? "text-green-600" : "text-destructive"
+                    user.isEmailVerified ? "text-green-600" : "text-destructive"
                   }`}
                 >
-                  {user.data.isEmailVerified ? "✓ Verified" : "Not Verified"}
+                  {user.isEmailVerified ? "✓ Verified" : "Not Verified"}
                 </span>
               </div>
             </div>

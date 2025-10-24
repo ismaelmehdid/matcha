@@ -7,7 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { User as UserIcon, Search, Heart, MessageCircle, MapPin } from "lucide-react";
+import {
+  User as UserIcon,
+  Search,
+  Heart,
+  MessageCircle,
+  MapPin,
+} from "lucide-react";
 
 function UserHasCompletedProfile(user: User): boolean {
   // TODO: Add photos and interests check when backend endpoints are ready
@@ -15,7 +21,6 @@ function UserHasCompletedProfile(user: User): boolean {
     user.gender !== null &&
     user.sexualOrientation !== null &&
     user.biography !== null
-    // user.biography !== null &&
     // user.photos &&
     // user.photos.length > 0 &&
     // user.photos.some((photo) => photo.is_profile_pic) &&
@@ -25,7 +30,7 @@ function UserHasCompletedProfile(user: User): boolean {
 }
 
 export function Dashboard() {
-  const { data: user, isLoading } = useCurrentUser(); 
+  const { data: user, isLoading } = useCurrentUser();
 
   // Loading state
   if (isLoading) {
@@ -97,7 +102,9 @@ export function Dashboard() {
                     {user.latitude && user.longitude ? (
                       <span>Location set</span>
                     ) : (
-                      <span className="text-muted-foreground">Location not set</span>
+                      <span className="text-muted-foreground">
+                        Location not set
+                      </span>
                     )}
                   </div>
                 </div>
