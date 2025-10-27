@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { useUpdateProfile } from "@/hooks/useUserProfile";
-import type { GetOwnProfileResponse } from "@/api/user/schema";
+import type { User } from "@/types/user";
 
 const profileSchema = z.object({
   firstName: z
@@ -26,14 +26,14 @@ const profileSchema = z.object({
   sexualOrientation: z.enum(["straight", "gay", "bisexual"], { message: "Please select your sexual orientation" }),
   biography: z
     .string()
-    .min(20, "Biography must be at least 20 characters")
+    .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 interface ProfileFormProps {
-  user: GetOwnProfileResponse;
+  user: User;
 }
 
 export function ProfileForm({ user }: ProfileFormProps) {
@@ -42,11 +42,11 @@ export function ProfileForm({ user }: ProfileFormProps) {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: user.success ? user.data.firstName : "",
-      lastName: user.success ? user.data.lastName : "",
-      gender: user.success && user.data.gender ? user.data.gender : undefined,
-      sexualOrientation: user.success && user.data.sexualOrientation ? user.data.sexualOrientation : undefined,
-      biography: user.success && user.data.biography ? user.data.biography : "",
+      firstName: user.firstName,
+      lastName: user.lastName,
+      gender: user.gender ?? undefined,
+      sexualOrientation: user.sexualOrientation ?? undefined,
+      biography: user.biography ?? "",
     },
   });
 

@@ -26,6 +26,7 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(5)
   @MaxLength(500)
   biography?: string;
 }
