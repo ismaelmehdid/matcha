@@ -31,4 +31,5 @@ export class PrivateUserResponseDto extends PublicUserResponseDto {
   username: string;
   isEmailVerified: boolean;
   sexualOrientation: SexualOrientation | null;
+  profileCompleted: boolean;
 }

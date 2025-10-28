@@ -14,9 +14,23 @@ interface UpdateProfileRequest {
   longitude?: number;
 }
 
+interface CompleteProfileRequest {
+  gender: Gender;
+  sexualOrientation: SexualOrientation;
+  biography: string;
+}
+
 export const userApi = {
   getOwnProfile: async (): Promise<User> => {
     const response = await parseApiResponse(apiClient.get('/users/me'), createApiResponseSchema(UserSchema));
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+    return response.data;
+  },
+
+  completeProfile: async (request: CompleteProfileRequest): Promise<User> => {
+    const response = await parseApiResponse(apiClient.post('/users/me/complete', request), createApiResponseSchema(UserSchema));
     if (!response.success) {
       throw new Error(getToastMessage(response.messageKey));
     }

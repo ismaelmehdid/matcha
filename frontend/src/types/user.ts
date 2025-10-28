@@ -32,6 +32,7 @@ export const UserSchema = z.object({
   gender: GenderSchema.nullable(),
   sexualOrientation: SexualOrientationSchema.nullable(),
   biography: z.string().nullable(),
+  profileCompleted: z.boolean(),
   fameRating: z.number(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),

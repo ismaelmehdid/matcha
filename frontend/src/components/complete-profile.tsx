@@ -36,7 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUpdateProfile } from "@/hooks/useUserProfile";
+import { useCompleteProfile } from "@/hooks/useUserProfile";
 
 const fileSchema = z
   .instanceof(File)
@@ -169,7 +169,7 @@ function PhotoUploadGrid({
 export function CompleteProfileForm({ user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
   const { signOut } = useAuth();
-  const { mutate: updateProfile, isPending } = useUpdateProfile();
+  const { mutate: completeProfile, isPending } = useCompleteProfile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -216,7 +216,7 @@ export function CompleteProfileForm({ user }: { user: User }) {
   const onSubmit = (data: FormData) => {
     // TODO: Add photo upload and interests endpoints on backend
     // For now, only send basic profile fields
-    updateProfile({
+    completeProfile({
       gender: data.gender,
       sexualOrientation: data.sexualOrientation,
       biography: data.biography,

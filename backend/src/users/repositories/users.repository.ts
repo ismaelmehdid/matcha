@@ -25,6 +25,7 @@ export interface User {
   gender: Gender | null;
   sexual_orientation: SexualOrientation | null;
   biography: string | null;
+  profile_completed: boolean;
   fame_rating: number;
   latitude: number | null;
   longitude: number | null;
@@ -37,7 +38,7 @@ export interface User {
 }
 
 const USER_BASE_QUERY = `
-  SELECT 
+  SELECT
     u.id,
     u.username,
     u.email,
@@ -48,6 +49,7 @@ const USER_BASE_QUERY = `
     u.gender,
     u.sexual_orientation,
     u.biography,
+    u.profile_completed,
     u.fame_rating,
     u.latitude,
     u.longitude,
@@ -152,6 +154,54 @@ export class UsersRepository {
     try {
       const query = 'UPDATE users SET is_email_verified = $1 WHERE id = $2';
       await this.db.query(query, [isEmailVerified, userId]);
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async completeProfile(userId: string, dto: {
+    gender: Gender;
+    sexualOrientation: SexualOrientation;
+    biography: string;
+  }): Promise<User> {
+    const query = `
+      WITH updated_user AS (
+        UPDATE users
+        SET gender = $1, sexual_orientation = $2, biography = $3, profile_completed = TRUE
+        WHERE id = $4
+        RETURNING *
+      )
+      SELECT u.*,
+        COALESCE(
+          (SELECT jsonb_agg(jsonb_build_object('id', up.id, 'url', up.url, 'is_profile_pic', up.is_profile_pic))
+            FROM user_photos up
+            WHERE up.user_id = u.id),
+          '[]'::jsonb
+        ) AS photos,
+        COALESCE(
+          (SELECT jsonb_agg(jsonb_build_object('id', i.id, 'name', i.name))
+            FROM user_interests ui
+            JOIN interests i ON ui.interest_id = i.id
+            WHERE ui.user_id = u.id),
+          '[]'::jsonb
+        ) AS interests
+      FROM updated_user u;
+    `;
+
+    const values = [dto.gender, dto.sexualOrientation, dto.biography, userId];
+
+    try {
+      const result = await this.db.query<User>(query, values);
+      if (!result || !result.rows[0]) {
+        throw new CustomHttpException(
+          'USER_NOT_FOUND',
+          `User with id ${userId} not found`,
+          'ERROR_USER_NOT_FOUND',
+          HttpStatus.NOT_FOUND
+        );
+      }
+      return result.rows[0];
     } catch (error) {
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);

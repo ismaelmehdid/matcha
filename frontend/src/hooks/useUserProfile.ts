@@ -3,8 +3,6 @@ import { userApi } from '../api/user/user';
 import { toast } from 'sonner';
 import type { User } from '@/types/user';
 
-// TODO: change query key to 'user' when backend is ready
-// (temporary 'v2' key to avoid conflicts with old implementation)
 export function useCurrentUser() {
   const query = useQuery({
     queryKey: ['user'],
@@ -19,12 +17,26 @@ export function useCurrentUser() {
   };
 }
 
+export function useCompleteProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: userApi.completeProfile,
+    onSuccess: (user: User) => {
+      queryClient.setQueryData(['user'], user);
+      toast.success('Profile completed successfully! 🎉');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: userApi.updateProfile,
     onSuccess: (user: User) => {
-      queryClient.setQueryData(['user', 'v2'], user);
+      queryClient.setQueryData(['user'], user);
       toast.success('Profile updated successfully 🎉');
     },
     onError: (error) => {

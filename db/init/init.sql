@@ -19,6 +19,7 @@ CREATE TABLE users (
     gender gender_type DEFAULT NULL,
     sexual_orientation sexual_orientation_type DEFAULT 'bisexual',
     biography TEXT DEFAULT NULL,
+    profile_completed BOOLEAN DEFAULT FALSE,
     fame_rating INT DEFAULT 0,
     latitude DECIMAL(9,6) DEFAULT NULL,
     longitude DECIMAL(9,6) DEFAULT NULL,
