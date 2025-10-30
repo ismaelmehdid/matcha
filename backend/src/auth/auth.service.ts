@@ -3,7 +3,7 @@ import { UserService } from '../users/user.service';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { Resend } from 'resend';
-import { PrivateUserResponseDto } from 'src/users/dto/user-response.dto';
+import { PrivateUserResponseDto } from 'src/users/dto';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
 import { SignInResponseDto } from './dto/sign-in-response.dto';
 import { AuthRepository } from './repositories/auth.repository';

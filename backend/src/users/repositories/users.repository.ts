@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { DatabaseService } from '../../database/database.service';
-import { CreateUserDto } from '../dto/create-user.dto';
+import { PoolClient } from 'pg';
+import { DatabaseService } from 'src/database/database.service';
+import { CreateUserDto } from '../dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { Gender, SexualOrientation } from '../enums/user.enums';
 
@@ -162,16 +163,25 @@ export class UsersRepository {
     }
   }
 
-  async completeProfile(userId: string, dto: {
-    dateOfBirth: string;
-    gender: Gender;
-    sexualOrientation: SexualOrientation;
-    biography: string;
-  }): Promise<User> {
+  async completeProfile(
+    userId: string,
+    dto: {
+      dateOfBirth: string;
+      gender: Gender;
+      sexualOrientation: SexualOrientation;
+      biography: string;
+    },
+    client?: PoolClient,
+  ): Promise<User> {
     const query = `
       WITH updated_user AS (
         UPDATE users
-        SET date_of_birth = $1, gender = $2, sexual_orientation = $3, biography = $4, profile_completed = TRUE
+        SET date_of_birth = $1, 
+            gender = $2,
+            sexual_orientation = $3,
+            biography = $4,
+            profile_completed = TRUE,
+            updated_at = NOW()
         WHERE id = $5
         RETURNING *
       )
@@ -192,11 +202,19 @@ export class UsersRepository {
       FROM updated_user u;
     `;
 
-    const values = [dto.dateOfBirth, dto.gender, dto.sexualOrientation, dto.biography, userId];
+    const values = [
+      dto.dateOfBirth, 
+      dto.gender, 
+      dto.sexualOrientation, 
+      dto.biography, 
+      userId
+    ];
 
     try {
-      const result = await this.db.query<User>(query, values);
-      if (!result || !result.rows[0]) {
+      const result = client 
+        ? await client.query<User>(query, values)
+        : await this.db.query<User>(query, values);
+      if (!result?.rows?.[0]) {
         throw new CustomHttpException(
           'USER_NOT_FOUND',
           `User with id ${userId} not found`,
@@ -204,8 +222,14 @@ export class UsersRepository {
           HttpStatus.NOT_FOUND
         );
       }
+
       return result.rows[0];
     } catch (error) {
+      // If it's already CustomHttpException, rethrow it
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -249,6 +273,7 @@ export class UsersRepository {
       );
     }
 
+    fields.push('updated_at = NOW()');
     values.push(userId);
     const query = `
       WITH updated_user AS (
@@ -276,7 +301,7 @@ export class UsersRepository {
 
     try {
       const result = await this.db.query<User>(query, values);
-      if (!result) {
+      if (!result?.rows?.[0]) {
         throw new CustomHttpException(
           'USER_NOT_FOUND',
           `User with id ${userId} not found`,
@@ -286,6 +311,11 @@ export class UsersRepository {
       }
       return result.rows[0];
     } catch (error) {
+      // If it's already CustomHttpException, rethrow it
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
     }
