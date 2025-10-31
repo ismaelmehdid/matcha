@@ -128,6 +128,12 @@ export function InterestsSelector({ currentInterests }: InterestsSelectorProps) 
         {isMaxReached && " (maximum reached)"}
       </p>
 
+      {selectedIds.length === 0 && hasChanges && (
+        <p className="text-sm text-red-500 mt-1">
+          At least one interest is required
+        </p>
+      )}
+
       {hasChanges && (
         <div className="flex gap-2">
           <Button

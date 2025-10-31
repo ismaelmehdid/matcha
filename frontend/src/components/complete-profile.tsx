@@ -29,7 +29,7 @@ import {
   TagsValue,
 } from "@/components/ui/shadcn-io/tags";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useRef, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import { Button } from "./ui/button";
 import { Camera, XIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
@@ -84,6 +84,14 @@ function FileInputWithCamera({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
