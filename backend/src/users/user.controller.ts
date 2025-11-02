@@ -3,7 +3,7 @@ import { UserService } from './user.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
-import { UpdateProfileDto, CompleteProfileDto } from './dto';
+import { UpdateProfileRequestDto, CompleteProfileRequestDto } from './dto';
 
 @Controller('users')
 export class UserController {
@@ -21,7 +21,7 @@ export class UserController {
   @UseGuards(AuthGuard)
   async completeProfile(
     @CurrentUser('sub') userId: string,
-    @Body() completeProfileDto: CompleteProfileDto,
+    @Body() completeProfileDto: CompleteProfileRequestDto,
   ) {
     const user = await this.userService.completeProfile(userId, completeProfileDto);
     return { success: true, data: user, messageKey: 'SUCCESS_PROFILE_COMPLETED' };
@@ -31,7 +31,7 @@ export class UserController {
   @UseGuards(AuthGuard)
   async updateProfile(
     @CurrentUser('sub') userId: string,
-    @Body() updateProfileDto: UpdateProfileDto,
+    @Body() updateProfileDto: UpdateProfileRequestDto,
   ) {
     const user = await this.userService.updateProfile(userId, updateProfileDto);
     return { success: true, data: user, messageKey: 'SUCCESS_PROFILE_UPDATED' };

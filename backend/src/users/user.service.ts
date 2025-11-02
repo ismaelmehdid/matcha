@@ -5,11 +5,11 @@ import { CustomHttpException } from 'src/common/exceptions/custom-http.exception
 import { InterestRepository } from 'src/interests/repository/interest.repository';
 import { DatabaseService } from 'src/database/database.service';
 import {
-  CreateUserDto,
-  UpdateProfileDto,
-  CompleteProfileDto,
-  PublicUserResponseDto,
-  PrivateUserResponseDto,
+  CreateUserRequestDto,
+  UpdateProfileRequestDto,
+  CompleteProfileRequestDto,
+  PublicUserDto,
+  PrivateUserDto,
 } from './dto';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class UserService {
     private readonly db: DatabaseService,
   ) { }
 
-  private mapUserToPrivateUserResponseDto(user: User): PrivateUserResponseDto {
+  private mapUserToPrivateUserDto(user: User): PrivateUserDto {
     return {
       id: user.id,
       firstName: user.first_name,
@@ -39,35 +39,39 @@ export class UserService {
       username: user.username,
       isEmailVerified: user.is_email_verified,
       interests: user.interests,
-      photos: user.photos,
+      photos: user.photos.map(photo => ({
+        id: photo.id,
+        url: photo.url,
+        isProfilePic: photo.is_main
+      })),
     };
   }
 
-  async findByUsername(username: string): Promise<PrivateUserResponseDto | null> {
+  async findByUsername(username: string): Promise<PrivateUserDto | null> {
     const user: User | null = await this.usersRepository.findByUsername(username);
     if (!user) return null;
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
-  async findByEmailOrUsername(email: string, username: string): Promise<PrivateUserResponseDto | null> {
+  async findByEmailOrUsername(email: string, username: string): Promise<PrivateUserDto | null> {
     const user: User | null = await this.usersRepository.findByEmailOrUsername(email, username);
     if (!user) return null;
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
-  async findById(id: string): Promise<PrivateUserResponseDto | null> {
+  async findById(id: string): Promise<PrivateUserDto | null> {
     const user: User | null = await this.usersRepository.findById(id);
     if (!user) return null;
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
-  async findByEmail(email: string): Promise<PrivateUserResponseDto | null> {
+  async findByEmail(email: string): Promise<PrivateUserDto | null> {
     const user: User | null = await this.usersRepository.findByEmail(email);
     if (!user) return null;
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
-  async create(createUserDto: CreateUserDto): Promise<PrivateUserResponseDto> {
+  async create(createUserDto: CreateUserRequestDto): Promise<PrivateUserDto> {
     const existingUser = await this.findByEmailOrUsername(
       createUserDto.email,
       createUserDto.username,
@@ -75,7 +79,7 @@ export class UserService {
     if (existingUser) throw new CustomHttpException('USERNAME_OR_EMAIL_ALREADY_EXISTS', 'Username or email already exists.', 'ERROR_USERNAME_OR_EMAIL_ALREADY_EXISTS', HttpStatus.CONFLICT);
     const passwordHash = await bcrypt.hash(createUserDto.password, 10);
     const user: User = await this.usersRepository.create({ ...createUserDto, password: passwordHash });
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
   async validatePassword(username: string, password: string): Promise<boolean> {
@@ -93,7 +97,7 @@ export class UserService {
     await this.usersRepository.updateEmailVerified(userId, isEmailVerified);
   }
 
-  async completeProfile(userId: string, dto: CompleteProfileDto): Promise<PrivateUserResponseDto> {
+  async completeProfile(userId: string, dto: CompleteProfileRequestDto): Promise<PrivateUserDto> {
     const existingUser = await this.usersRepository.findById(userId);
     if (!existingUser) { throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND); }
     if (existingUser.profile_completed) { throw new CustomHttpException('PROFILE_ALREADY_COMPLETED', 'Profile already completed', 'ERROR_PROFILE_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST); }
@@ -114,10 +118,10 @@ export class UserService {
       );
       return user;
     });
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 
-  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<PrivateUserResponseDto> {
+  async updateProfile(userId: string, dto: UpdateProfileRequestDto): Promise<PrivateUserDto> {
     const user: User = await this.usersRepository.updateProfile(userId, {
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -125,6 +129,6 @@ export class UserService {
       sexualOrientation: dto.sexualOrientation,
       biography: dto.biography,
     });
-    return this.mapUserToPrivateUserResponseDto(user);
+    return this.mapUserToPrivateUserDto(user);
   }
 }

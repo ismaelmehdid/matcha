@@ -3,7 +3,7 @@ import { UserService } from '../users/user.service';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { Resend } from 'resend';
-import { PrivateUserResponseDto } from 'src/users/dto';
+import { PrivateUserDto } from 'src/users/dto';
 import { SignUpResponseDto } from './dto/sign-up-response.dto';
 import { SignInResponseDto } from './dto/sign-in-response.dto';
 import { AuthRepository } from './repositories/auth.repository';
@@ -48,9 +48,9 @@ export class AuthService {
 
   async signUp(email: string, password: string, firstName: string, lastName: string, username: string): Promise<SignUpResponseDto> {
     if (!this.isValidPassword(password)) throw new CustomHttpException('INVALID_PASSWORD', 'Password is not strong enough', 'ERROR_INVALID_PASSWORD', HttpStatus.BAD_REQUEST);
-    const existingUser: PrivateUserResponseDto | null = await this.userService.findByEmailOrUsername(email, username);
+    const existingUser: PrivateUserDto | null = await this.userService.findByEmailOrUsername(email, username);
     if (existingUser) throw new CustomHttpException('EMAIL_OR_USERNAME_ALREADY_EXISTS', 'Email or username already exists', 'ERROR_EMAIL_OR_USERNAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
-    const newUser: PrivateUserResponseDto = await this.userService.create({ username, email, firstName, lastName, password });
+    const newUser: PrivateUserDto = await this.userService.create({ username, email, firstName, lastName, password });
     const accessToken = this.generateAccessToken({ id: newUser.id, email: newUser.email });
     const refreshToken = await this.generateRefreshToken({ id: newUser.id });
     return { accessToken, refreshToken, userId: newUser.id.toString() };

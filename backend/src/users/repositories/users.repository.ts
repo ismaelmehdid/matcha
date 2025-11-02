@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { PoolClient } from 'pg';
 import { DatabaseService } from 'src/database/database.service';
-import { CreateUserDto } from '../dto';
+import { CreateUserRequestDto } from '../dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { Gender, SexualOrientation } from '../enums/user.enums';
 
@@ -124,7 +124,7 @@ export class UsersRepository {
     }
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserRequestDto): Promise<User> {
     const { email, password, firstName, lastName, username } = createUserDto;
 
     try {
