@@ -1,4 +1,4 @@
-import { IsString, MinLength, MaxLength, IsEnum, IsDateString, IsNotEmpty, IsArray, IsInt, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsEnum, IsDateString, IsNotEmpty, IsArray, IsUUID, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { Gender, SexualOrientation } from '../enums/user.enums';
 import { IsMinAge, IsArrayUnique } from 'src/common/validators';
 
@@ -22,7 +22,7 @@ export class CompleteProfileDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(10)
-  @IsInt({ each: true })
+  @IsUUID('4', { each: true })
   @IsArrayUnique()
-  interestIds: number[];
+  interestIds: string[];
 }

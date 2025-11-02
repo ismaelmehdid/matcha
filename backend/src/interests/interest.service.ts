@@ -9,7 +9,7 @@ export class InterestService {
     return await this.interestRepository.findAll();
   }
 
-  async updateUserInterests(userId: string, interestIds: number[]): Promise<void> {
+  async updateUserInterests(userId: string, interestIds: string[]): Promise<void> {
     return await this.interestRepository.updateUserInterests(userId, interestIds);
   }
 }

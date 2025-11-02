@@ -45,7 +45,7 @@ services:
       - db
       - redis
     restart: always
-    command: npm run start:dev
+    command: sh -c "npm run seed && npm run start:dev"
     networks:
       - matcha-network
 

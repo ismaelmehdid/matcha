@@ -23,8 +23,8 @@ export class InterestRepository {
   }
 
   async updateUserInterests(
-    userId: string, 
-    interestIds: number[], 
+    userId: string,
+    interestIds: string[],
     client?: PoolClient,
   ): Promise<void> {
     try {
@@ -36,10 +36,10 @@ export class InterestRepository {
 
       if (interestIds.length === 0) return;
 
-      const verifyQuery = 'SELECT id FROM interests WHERE id = ANY($1::int[])';
-      const verifyResult = client 
-        ? await client.query<{ id: number }>(verifyQuery, [interestIds])
-        : await this.db.query<{ id: number }>(verifyQuery, [interestIds]);
+      const verifyQuery = 'SELECT id FROM interests WHERE id = ANY($1::uuid[])';
+      const verifyResult = client
+        ? await client.query<{ id: string }>(verifyQuery, [interestIds])
+        : await this.db.query<{ id: string }>(verifyQuery, [interestIds]);
 
       if (verifyResult.rows.length !== interestIds.length) {
         throw new CustomHttpException(

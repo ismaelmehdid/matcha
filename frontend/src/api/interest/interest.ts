@@ -14,7 +14,7 @@ export const interestApi = {
     return response.data;
   },
 
-  updateMyInterests: async (interestIds: number[]): Promise<void> => {
+  updateMyInterests: async (interestIds: string[]): Promise<void> => {
     const response = await parseApiResponse(
       apiClient.put('/interests/me', { interestIds }),
       createApiResponseSchema(z.void())

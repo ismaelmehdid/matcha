@@ -58,6 +58,28 @@ case $COMMAND in
       docker compose logs -f "$SERVICE"
     fi
     ;;
+
+  clear)
+    echo -e "${YELLOW}⏹  Clearing the data of the services...${NC}"
+
+    # Fix permissions and remove data
+    if [ -d "./db/data" ]; then
+      echo "🗑️  Removing database data..."
+      sudo chown -R $USER:$USER ./db/data
+      rm -rf ./db/data
+    fi
+
+    if [ -d "./redis/data" ]; then
+      echo "🗑️  Removing redis data..."
+      sudo chown -R $USER:$USER ./redis/data
+      rm -rf ./redis/data
+    fi
+
+    echo -e "${GREEN}✅ Data cleared${NC}"
+    echo ""
+
+    ./run.sh restart
+    ;;
   
   *)
     echo -e "${RED}❌ Unknown command: $COMMAND${NC}"
@@ -69,6 +91,7 @@ case $COMMAND in
     echo "  stop     - Stop all services"
     echo "  restart  - Restart all services"
     echo "  logs     - Show logs (optional: ./run.sh logs backend)"
+    echo "  clear    - Restart and clear the data of the services (db and redis)"
     exit 1
     ;;
 esac

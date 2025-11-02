@@ -23,7 +23,7 @@ export function InterestsSelector({ currentInterests }: InterestsSelectorProps) 
   const { data: allInterests, isLoading: isLoadingInterests } = useInterests();
   const { mutate: updateInterests, isPending } = useUpdateMyInterests();
 
-  const [selectedIds, setSelectedIds] = useState<number[]>(
+  const [selectedIds, setSelectedIds] = useState<string[]>(
     currentInterests.map(interest => interest.id)
   );
   const [hasChanges, setHasChanges] = useState(false);
@@ -33,7 +33,7 @@ export function InterestsSelector({ currentInterests }: InterestsSelectorProps) 
     setHasChanges(false);
   }, [currentInterests]);
 
-  const handleInterestToggle = (interestId: number) => {
+  const handleInterestToggle = (interestId: string) => {
     const isSelected = selectedIds.includes(interestId);
 
     if (isSelected) {
@@ -112,7 +112,7 @@ export function InterestsSelector({ currentInterests }: InterestsSelectorProps) 
                   <TagsItem
                     key={interest.id}
                     onSelect={() => handleInterestToggle(interest.id)}
-                    value={interest.id.toString()}
+                    value={interest.id}
                     disabled={isMaxReached}
                   >
                     {interest.name}

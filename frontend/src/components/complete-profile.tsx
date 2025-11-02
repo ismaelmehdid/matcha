@@ -68,7 +68,7 @@ const formSchema = z.object({
     .string()
     .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
-  interests: z.array(z.number()).min(1, "At least one interest is required"),
+  interests: z.array(z.string()).min(1, "At least one interest is required"),
   // TODO: Make photos required when backend endpoint is ready
   photos: z.array(fileSchema).optional(),
 });
@@ -210,7 +210,7 @@ export function CompleteProfileForm({ user }: { user: User }) {
   } = form;
   const selectedInterests = watch("interests");
 
-  const handleInterestToggle = (interestId: number) => {
+  const handleInterestToggle = (interestId: string) => {
     const currentInterests = selectedInterests || [];
     const isSelected = currentInterests.includes(interestId);
 
@@ -381,7 +381,7 @@ export function CompleteProfileForm({ user }: { user: User }) {
                               <TagsItem
                                 key={interest.id}
                                 onSelect={() => handleInterestToggle(interest.id)}
-                                value={interest.id.toString()}
+                                value={interest.id}
                                 disabled={(selectedInterests?.length || 0) >= 10}
                               >
                                 {interest.name}
