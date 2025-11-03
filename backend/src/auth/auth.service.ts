@@ -49,8 +49,6 @@ export class AuthService {
   }
 
   async signUp(email: string, password: string, firstName: string, lastName: string, username: string): Promise<SignUpResponseDto> {
-    const existingUser: PrivateUserDto | null = await this.userService.findByEmailOrUsername(email, username);
-    if (existingUser) throw new CustomHttpException('EMAIL_OR_USERNAME_ALREADY_EXISTS', 'Email or username already exists', 'ERROR_EMAIL_OR_USERNAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
     const newUser: PrivateUserDto = await this.userService.create({ username, email, firstName, lastName, password });
     const accessToken = this.generateAccessToken({ id: newUser.id, email: newUser.email });
     const refreshToken = await this.generateRefreshToken({ id: newUser.id });

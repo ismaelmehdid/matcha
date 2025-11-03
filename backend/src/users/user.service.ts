@@ -49,12 +49,12 @@ export class UserService {
       username: user.username,
       isEmailVerified: user.is_email_verified,
       sexualOrientation: user.sexual_orientation,
-      interests: user.interests,
-      photos: user.photos.map(photo => ({
+      interests: user.interests ? user.interests : [],
+      photos: user.photos ? user.photos.map(photo => ({
         id: photo.id,
         url: photo.url,
         isProfilePic: photo.is_main
-      })),
+      })) : [],
     };
   }
 
@@ -71,12 +71,12 @@ export class UserService {
       longitude: user.longitude,
       lastTimeActive: user.last_time_active ? user.last_time_active.toISOString() : null,
       createdAt: user.created_at.toISOString(),
-      interests: user.interests,
-      photos: user.photos.map(photo => ({
+      interests: user.interests ? user.interests : [],
+      photos: user.photos ? user.photos.map(photo => ({
         id: photo.id,
         url: photo.url,
         isProfilePic: photo.is_main
-      })),
+      })) : [],
     };
   }
 
