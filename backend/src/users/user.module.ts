@@ -7,9 +7,10 @@ import { DatabaseModule } from '../database/database.module';
 import { InterestModule } from '../interests/interest.module';
 import { ChatModule } from '../chat/chat.module';
 import { NotificationModule } from '../notifications/notification.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [DatabaseModule, InterestModule, forwardRef(() => ChatModule), forwardRef(() => NotificationModule)],
+  imports: [DatabaseModule, InterestModule, forwardRef(() => ChatModule), forwardRef(() => NotificationModule), RedisModule],
   controllers: [UserController],
   providers: [UserService, UsersRepository, LikesRepository],
   exports: [UserService, UsersRepository],

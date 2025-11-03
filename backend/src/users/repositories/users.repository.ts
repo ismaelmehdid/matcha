@@ -174,6 +174,12 @@ export class UsersRepository {
       gender: Gender;
       sexualOrientation: SexualOrientation;
       biography: string;
+      location: {
+        latitude: number;
+        longitude: number;
+        cityName: string;
+        countryName: string;
+      }
     },
     client?: PoolClient,
   ): Promise<User> {

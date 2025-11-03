@@ -3,6 +3,7 @@ import { Gender, SexualOrientation } from "../src/users/enums/user.enums";
 import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 import cities from 'cities.json';
+import { createClient } from 'redis';
 
 interface RandomUser {
   id: string;
@@ -34,6 +35,10 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'matcha',
   password: process.env.DB_PASSWORD || 'password',
   port: parseInt(process.env.DB_PORT || '5432'),
+});
+
+const redisClient = createClient({
+  url: `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
 });
 
 const NUM_USERS = 50;
@@ -167,6 +172,8 @@ function createRandomUser(): RandomUser {
 
 async function seedDatabase() {
   try {
+    await redisClient.connect();
+    console.log('✅ Connected to Redis');
 
     const client = await pool.connect();
     console.log('✅ Connected to database');
@@ -257,6 +264,12 @@ async function seedDatabase() {
           true // profile_completed
         );
         paramIndex += 18;
+        try {
+          await redisClient.incr(`location:${user.cityName}, ${user.countryName}`);
+        } catch (error) {
+          console.error('Failed to increment location counter in Redis:', error);
+          throw new Error('Failed to increment location counter in Redis');
+        }
       }
 
       const query = `
@@ -499,6 +512,7 @@ async function seedDatabase() {
     throw error;
   } finally {
     await pool.end();
+    await redisClient.quit();
   }
 }
 

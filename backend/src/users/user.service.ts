@@ -20,11 +20,8 @@ import {
   PrivateUserDto,
 } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
-
-const ResolveCityNameAndCountryNameByLatitudeAndLongitudeResponseSchema = z.object({
-  cityName: z.string(),
-  countryName: z.string(),
-});
+import { RedisRepository } from 'src/redis/repositories/redis.repository';
+import { GetLocationListResponseDto, LocationEntryDto } from './dto/get-location-list/get-location-list.dto';
 
 const IPAPIResponseSchema = z.discriminatedUnion('status', [
   z.object({
@@ -58,6 +55,31 @@ const NominatimSearchResponseSchema = z.array(
   })
 );
 
+const ResolveLocationRequestSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('latitudeAndLongitude'),
+    latitude: z.number(),
+    longitude: z.number(),
+  }),
+  z.object({
+    type: z.literal('cityNameAndCountryName'),
+    cityName: z.string(),
+    countryName: z.string(),
+  }),
+  z.object({
+    type: z.literal('ipAddress'),
+    ipAddress: z.string(),
+  }),
+]);
+type ResolveLocationRequest = z.infer<typeof ResolveLocationRequestSchema>;
+
+type Location = {
+  latitude: number;
+  longitude: number;
+  cityName: string;
+  countryName: string;
+}
+
 @Injectable()
 export class UserService {
   constructor(
@@ -67,6 +89,7 @@ export class UserService {
     private readonly likesRepository: LikesRepository,
     private readonly chatRepository: ChatRepository,
     private readonly notificationService: NotificationService,
+    private readonly redisRepository: RedisRepository,
   ) { }
 
   private mapUserToPrivateUserDto(user: User): PrivateUserDto {
@@ -297,15 +320,78 @@ export class UserService {
     await this.usersRepository.updateEmailVerified(userId, isEmailVerified);
   }
 
-  async completeProfile(userId: string, dto: CompleteProfileRequestDto): Promise<CompleteProfileResponseDto> {
+  private async resolveLocation(request: ResolveLocationRequest): Promise<Location> {
+    let resolvedLocation: Location;
+    switch (request.type) {
+      case 'latitudeAndLongitude': {
+        const resolved: { cityName: string, countryName: string } = await this.resolveCityNameAndCountryNameByLatitudeAndLongitude(request.latitude, request.longitude);
+        resolvedLocation = {
+          latitude: request.latitude,
+          longitude: request.longitude,
+          cityName: resolved.cityName,
+          countryName: resolved.countryName,
+        };
+        break;
+      }
+      case 'cityNameAndCountryName': {
+        const resolved: { longitude: number, latitude: number } = await this.resolveLongitudeAndLatitudeByCityNameAndCountryName(request.cityName, request.countryName);
+        resolvedLocation = {
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+          cityName: request.cityName,
+          countryName: request.countryName,
+        };
+        break;
+      }
+      case 'ipAddress': {
+        const resolvedLatitudeAndLongitude: { longitude: number, latitude: number } = await this.resolveLongitudeAndLatitudeByIPAddress(request.ipAddress);
+        const resolvedCityNameAndCountryName: { cityName: string, countryName: string } = await this.resolveCityNameAndCountryNameByLatitudeAndLongitude(resolvedLatitudeAndLongitude.latitude, resolvedLatitudeAndLongitude.longitude);
+        resolvedLocation = {
+          latitude: resolvedLatitudeAndLongitude.latitude,
+          longitude: resolvedLatitudeAndLongitude.longitude,
+          cityName: resolvedCityNameAndCountryName.cityName,
+          countryName: resolvedCityNameAndCountryName.countryName,
+        };
+        break;
+      }
+      default:
+        throw new CustomHttpException('INVALID_LOCATION_TYPE', 'Invalid location type', 'ERROR_INVALID_LOCATION_TYPE', HttpStatus.BAD_REQUEST);
+    }
+    return resolvedLocation;
+  }
+
+  private async incrementLocationList(cityName: string, countryName: string): Promise<void> {
+    try {
+      await this.redisRepository.incrementEntry(`location:${cityName}, ${countryName}`);
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  private async decrementLocationList(cityName: string, countryName: string): Promise<void> {
+    try {
+      await this.redisRepository.decrementEntry(`location:${cityName}, ${countryName}`);
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async completeProfile(userId: string, dto: CompleteProfileRequestDto, ipAddress?: string): Promise<CompleteProfileResponseDto> {
     const existingUser = await this.usersRepository.findById(userId);
     if (!existingUser) { throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND); }
     if (existingUser.profile_completed) { throw new CustomHttpException('PROFILE_ALREADY_COMPLETED', 'Profile already completed', 'ERROR_PROFILE_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST); }
-
-    // Use a transaction to ensure both operations succeed or fail together
+    let location: Location;
+    if (dto.latitude && dto.longitude) {
+      location = await this.resolveLocation({ type: 'latitudeAndLongitude', latitude: dto.latitude, longitude: dto.longitude });
+    } else if (ipAddress) {
+      location = await this.resolveLocation({ type: 'ipAddress', ipAddress: ipAddress });
+    } else {
+      throw new CustomHttpException('MISSING_LOCATION_INFORMATION', 'Missing location information', 'ERROR_MISSING_LOCATION_INFORMATION', HttpStatus.BAD_REQUEST);
+    }
     const user = await this.db.transaction(async (client) => {
       await this.interestRepository.updateUserInterests(userId, dto.interestIds, client);
-
       const user = await this.usersRepository.completeProfile(
         userId,
         {
@@ -313,9 +399,16 @@ export class UserService {
           gender: dto.gender,
           sexualOrientation: dto.sexualOrientation,
           biography: dto.biography,
+          location: location,
         },
         client
       );
+      try {
+        await this.incrementLocationList(location.cityName, location.countryName);
+      } catch (error) {
+        console.error('Failed to increment location counter in Redis:', error);
+        throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
       return user;
     });
     return { user: this.mapUserToPrivateUserDto(user) };
@@ -382,5 +475,39 @@ export class UserService {
 
   async getCountryNameByUserId(userId: string): Promise<string> {
     return await this.usersRepository.getCountryNameByUserId(userId);
+  }
+
+  async getLocationList(userId: string): Promise<GetLocationListResponseDto> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (!user.city_name || !user.country_name) {
+      throw new CustomHttpException('USER_LOCATION_NOT_SET', 'User location not set', 'ERROR_USER_LOCATION_NOT_SET', HttpStatus.BAD_REQUEST);
+    }
+    const locationKeys: string[] = await this.redisRepository.getEntries(`location:*`);
+    console.log('Location keys:', locationKeys);
+    if (locationKeys.length === 0) {
+      return { locations: [] };
+    }
+    const countValues: (string | null)[] = await this.redisRepository.getEntriesBatch(locationKeys);
+    const locationEntries: LocationEntryDto[] = [];
+    for (let i = 0; i < locationKeys.length; i++) {
+      const key = locationKeys[i];
+      const locationString = key.replace('location:', '');
+      const [cityName, countryName] = locationString.split(', ');
+      const countValue = countValues[i];
+      const count = countValue ? parseInt(countValue, 10) : 0;
+      if (cityName === user.city_name && countryName === user.country_name) {
+        if (count - 1 <= 0) {
+          continue;
+        } else {
+          locationEntries.push({ cityName, countryName, count: count - 1 });
+        }
+      } else {
+        locationEntries.push({ cityName, countryName, count });
+      }
+    }
+    return { locations: locationEntries };
   }
 }

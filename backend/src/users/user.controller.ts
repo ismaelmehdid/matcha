@@ -13,6 +13,7 @@ import { PrivateUserDto } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { LikeUserRequestDto } from './dto/like-user/like-user-request.dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
+import { GetLocationListResponseDto } from './dto/get-location-list/get-location-list.dto';
 
 @Controller('users')
 export class UserController {
@@ -58,6 +59,13 @@ export class UserController {
   async likeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
     await this.userService.likeUser(userId, likeUserRequestDto.userId);
     return { success: true, messageKey: 'SUCCESS_LIKE_USER' };
+  }
+
+  @Get('location-list')
+  @UseGuards(AuthGuard)
+  async getLocationList(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: GetLocationListResponseDto, messageKey: string }> {
+    const locationList: GetLocationListResponseDto = await this.userService.getLocationList(userId);
+    return { success: true, data: locationList, messageKey: 'SUCCESS_GET_LOCATION_LIST' };
   }
 
   @Get('resolve-location-by-latitude-and-longitude')
