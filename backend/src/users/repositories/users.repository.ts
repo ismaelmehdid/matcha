@@ -8,7 +8,7 @@ import { Gender, SexualOrientation } from '../enums/user.enums';
 export interface UserPhoto {
   id: string;
   url: string;
-  is_main: boolean;
+  is_profile_pic: boolean;
 }
 
 export interface UserInterest {

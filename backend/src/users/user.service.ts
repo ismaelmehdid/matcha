@@ -53,7 +53,7 @@ export class UserService {
       photos: user.photos ? user.photos.map(photo => ({
         id: photo.id,
         url: photo.url,
-        isProfilePic: photo.is_main
+        isProfilePic: photo.is_profile_pic
       })) : [],
     };
   }
@@ -75,7 +75,7 @@ export class UserService {
       photos: user.photos ? user.photos.map(photo => ({
         id: photo.id,
         url: photo.url,
-        isProfilePic: photo.is_main
+        isProfilePic: photo.is_profile_pic
       })) : [],
     };
   }

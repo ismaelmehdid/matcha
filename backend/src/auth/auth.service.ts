@@ -2,7 +2,7 @@ import { Injectable, HttpStatus } from '@nestjs/common';
 import { UserService } from '../users/user.service';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
-import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 import { PrivateUserDto } from 'src/users/dto';
 import { SignUpResponseDto } from './dto/sign-up/sign-up-response.dto';
 import { SignInResponseDto } from './dto/sign-in/sign-in-response.dto';
@@ -20,10 +20,16 @@ export class AuthService {
     }
     this.ACCESS_TOKEN_SECRET = access;
     this.REFRESH_TOKEN_SECRET = refresh;
+    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_SENDER_EMAIL) {
+      throw new Error('Sendgrid API key or sender email not configured (SENDGRID_API_KEY/SENDGRID_SENDER_EMAIL)');
+    }
+    this.sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+    this.SENDGRID_SENDER_EMAIL = process.env.SENDGRID_SENDER_EMAIL;
   }
   private readonly ACCESS_TOKEN_SECRET: string;
   private readonly REFRESH_TOKEN_SECRET: string;
-  private readonly resend = new Resend(process.env.RESEND_API_KEY);
+  private readonly SENDGRID_SENDER_EMAIL: string;
+  private readonly sendgrid = sgMail;
 
   private generateAccessToken(user: { id: string, email: string }): string {
     return jwt.sign({ sub: user.id.toString(), email: user.email }, this.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
@@ -87,12 +93,17 @@ export class AuthService {
     if (!user) return; // Don't throw an error if the email is not found to prevent email enumeration
     const resetToken = crypto.randomBytes(32).toString('hex');
     await this.authRepository.setEntry(`password_reset:${resetToken}`, user.id.toString(), 60 * 60);
-    this.resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: user.email,
-      subject: 'Reset your password for Matcha',
-      html: `<p>Click <a href="http://localhost:5173/auth/reset-password?token=${resetToken}">here</a> to reset your password.</p>`
-    });
+    try {
+      await this.sendgrid.send({
+        to: user.email,
+        from: this.SENDGRID_SENDER_EMAIL,
+        subject: 'Reset your password for Matcha',
+        html: `<p>Click <a href="http://localhost:5173/auth/reset-password?token=${resetToken}">here</a> to reset your password.</p>`
+      });
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred please try again later', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
     return;
   }
 
@@ -125,9 +136,9 @@ export class AuthService {
     const verifyEmailToken = crypto.randomBytes(32).toString('hex');
     await this.authRepository.setEntry(`verify_email:${verifyEmailToken}`, user.id.toString(), 60 * 60);
     try {
-      await this.resend.emails.send({
-        from: 'onboarding@resend.dev',
+      await this.sendgrid.send({
         to: user.email,
+        from: this.SENDGRID_SENDER_EMAIL,
         subject: 'Verify your email for Matcha',
         html: `<p>Click <a href="http://localhost:5173/auth/verify-email?token=${verifyEmailToken}">here</a> to verify your email.</p>`
       });
