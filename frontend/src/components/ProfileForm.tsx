@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 import { useUpdateProfile } from "@/hooks/useUserProfile";
 import type { User } from "@/types/user";
 import { formatDateOfBirth } from "@/utils/dateUtils";
+import { LocationSelector } from "./LocationSelector";
 
 const profileSchema = z.object({
   firstName: z
@@ -33,6 +34,8 @@ const profileSchema = z.object({
     .string()
     .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -64,6 +67,10 @@ export function ProfileForm({ user }: ProfileFormProps) {
       gender: data.gender,
       sexualOrientation: data.sexualOrientation,
       biography: data.biography || "",
+      ...(data.latitude !== undefined && data.longitude !== undefined && {
+        latitude: data.latitude,
+        longitude: data.longitude,
+      }),
     });
   });
 
@@ -171,6 +178,26 @@ export function ProfileForm({ user }: ProfileFormProps) {
           </p>
         )}
       </div>
+
+      <Field>
+        <LocationSelector
+          onLocationSelect={(latitude, longitude) => {
+            form.setValue("latitude", latitude, { shouldValidate: true, shouldDirty: true });
+            form.setValue("longitude", longitude, { shouldValidate: true, shouldDirty: true });
+          }}
+          currentLocation={
+            user.latitude && user.longitude
+              ? {
+                  latitude: user.latitude,
+                  longitude: user.longitude,
+                  cityName: user.cityName || undefined,
+                  countryName: user.countryName || undefined,
+                }
+              : null
+          }
+          disabled={isPending}
+        />
+      </Field>
 
       <div className="flex gap-4">
         <Button type="submit" disabled={isPending || !isDirty}>

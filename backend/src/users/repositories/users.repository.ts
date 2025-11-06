@@ -179,17 +179,21 @@ export class UsersRepository {
         longitude: number;
         cityName: string;
         countryName: string;
-      }
+      };
     },
     client?: PoolClient,
   ): Promise<User> {
     const query = `
       WITH updated_user AS (
         UPDATE users
-        SET date_of_birth = $1, 
+        SET date_of_birth = $1,
             gender = $2,
             sexual_orientation = $3,
             biography = $4,
+            latitude = $6,
+            longitude = $7,
+            city_name = $8,
+            country_name = $9,
             profile_completed = TRUE,
             updated_at = NOW()
         WHERE id = $5
@@ -217,7 +221,11 @@ export class UsersRepository {
       dto.gender,
       dto.sexualOrientation,
       dto.biography,
-      userId
+      userId,
+      dto.location.latitude,
+      dto.location.longitude,
+      dto.location.cityName,
+      dto.location.countryName,
     ];
 
     try {
@@ -251,6 +259,10 @@ export class UsersRepository {
     gender: Gender;
     sexualOrientation: SexualOrientation;
     biography: string;
+    latitude: number;
+    longitude: number;
+    cityName: string;
+    countryName: string;
   }>): Promise<User> {
     const fields: string[] = [];
     const values: any[] = [];
@@ -263,6 +275,10 @@ export class UsersRepository {
       gender: 'gender',
       sexualOrientation: 'sexual_orientation',
       biography: 'biography',
+      latitude: 'latitude',
+      longitude: 'longitude',
+      cityName: 'city_name',
+      countryName: 'country_name',
     };
 
     // Build update fields dynamically

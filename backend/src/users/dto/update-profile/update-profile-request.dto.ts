@@ -1,4 +1,4 @@
-import { IsEnum, IsString, MinLength, MaxLength, IsOptional, Matches } from "class-validator";
+import { IsEnum, IsString, MinLength, MaxLength, IsOptional, Matches, IsNumber, Min, Max, ValidateIf } from "class-validator";
 import { Gender } from 'src/users/enums/user.enums';
 import { SexualOrientation } from 'src/users/enums/user.enums';
 
@@ -30,4 +30,18 @@ export class UpdateProfileRequestDto {
   @MinLength(5, { message: 'Biography must be at least 5 characters long' })
   @MaxLength(500, { message: 'Biography must be less than 500 characters long' })
   biography?: string;
+
+  @ValidateIf((o) => o.longitude !== undefined) // Can't receive only one of the two
+  @IsNumber({}, { message: 'Latitude must be a number' })
+  @Min(-90, { message: 'Latitude must be between -90 and 90' })
+  @Max(90, { message: 'Latitude must be between -90 and 90' })
+  @IsOptional()
+  latitude?: number;
+
+  @ValidateIf((o) => o.latitude !== undefined) // Can't receive only one of the two
+  @IsNumber({}, { message: 'Longitude must be a number' })
+  @Min(-180, { message: 'Longitude must be between -180 and 180' })
+  @Max(180, { message: 'Longitude must be between -180 and 180' })
+  @IsOptional()
+  longitude?: number;
 }

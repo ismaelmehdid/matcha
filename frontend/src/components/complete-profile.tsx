@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompleteProfile } from "@/hooks/useUserProfile";
 import { calculateAge, getMaxDate, formatDateForInput } from "@/utils/dateUtils";
+import { LocationSelector } from "./LocationSelector";
 
 const fileSchema = z
   .instanceof(File)
@@ -71,6 +72,8 @@ const formSchema = z.object({
   interests: z.array(z.string()).min(1, "At least one interest is required"),
   // TODO: Make photos required when backend endpoint is ready
   photos: z.array(fileSchema).optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -245,6 +248,10 @@ export function CompleteProfileForm({ user }: { user: User }) {
       sexualOrientation: data.sexualOrientation,
       biography: data.biography,
       interestIds: data.interests,
+      ...(data.latitude !== undefined && data.longitude !== undefined && {
+        latitude: data.latitude,
+        longitude: data.longitude,
+      }),
     });
   };
 
@@ -431,6 +438,22 @@ export function CompleteProfileForm({ user }: { user: User }) {
                   {errors.photos.message}
                 </p>
               )}
+            </Field>
+            <Field>
+              <LocationSelector
+                onLocationSelect={(latitude, longitude) => {
+                  setValue("latitude", latitude, { shouldValidate: true });
+                  setValue("longitude", longitude, { shouldValidate: true });
+                }}
+                currentLocation={
+                  watch("latitude") && watch("longitude")
+                    ? { latitude: watch("latitude")!, longitude: watch("longitude")! }
+                    : null
+                }
+                disabled={isPending}
+              />
+            </Field>
+            <Field>
               <Button
                 className="mt-4 w-full"
                 type="submit"
@@ -438,6 +461,8 @@ export function CompleteProfileForm({ user }: { user: User }) {
               >
                 Complete Profile
               </Button>
+            </Field>
+            <Field>
               <Separator className="my-4 w-full" />
               <Button variant="destructive" onClick={() => signOut()}>
                 Sign Out

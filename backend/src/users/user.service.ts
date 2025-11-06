@@ -18,11 +18,13 @@ import {
   CompleteProfileResponseDto,
   PublicUserDto,
   PrivateUserDto,
+  GetLocationListResponseDto,
+  LocationEntryDto,
 } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { RedisRepository } from 'src/redis/repositories/redis.repository';
-import { GetLocationListResponseDto, LocationEntryDto } from './dto/get-location-list/get-location-list.dto';
 
+// Zod schemas for external API validation
 const IPAPIResponseSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('success'),
@@ -102,8 +104,8 @@ export class UserService {
       biography: user.biography,
       profileCompleted: user.profile_completed,
       fameRating: user.fame_rating,
-      latitude: user.latitude,
-      longitude: user.longitude,
+      latitude: Number(user.latitude),
+      longitude: Number(user.longitude),
       cityName: user.city_name,
       countryName: user.country_name,
       lastTimeActive: user.last_time_active ? user.last_time_active.toISOString() : null,
@@ -130,8 +132,8 @@ export class UserService {
       gender: user.gender,
       biography: user.biography,
       fameRating: user.fame_rating,
-      latitude: user.latitude,
-      longitude: user.longitude,
+      latitude: Number(user.latitude),
+      longitude: Number(user.longitude),
       cityName: user.city_name,
       countryName: user.country_name,
       lastTimeActive: user.last_time_active ? user.last_time_active.toISOString() : null,
@@ -415,13 +417,49 @@ export class UserService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileRequestDto): Promise<UpdateProfileResponseDto> {
+    // Resolve location if new coordinates are provided
+    let location: Location | undefined;
+    if (dto.latitude !== undefined && dto.longitude !== undefined) {
+      location = await this.resolveLocation({
+        type: 'latitudeAndLongitude',
+        latitude: dto.latitude,
+        longitude: dto.longitude
+      });
+
+      // Get old location to decrement from Redis
+      const oldUser = await this.usersRepository.findById(userId);
+      if (oldUser && oldUser.city_name && oldUser.country_name) {
+        try {
+          await this.decrementLocationList(oldUser.city_name, oldUser.country_name);
+        } catch (error) {
+          console.error('Failed to decrement old location counter in Redis:', error);
+        }
+      }
+    }
+
     const user: User = await this.usersRepository.updateProfile(userId, {
       firstName: dto.firstName,
       lastName: dto.lastName,
       gender: dto.gender,
       sexualOrientation: dto.sexualOrientation,
       biography: dto.biography,
+      ...(location && {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        cityName: location.cityName,
+        countryName: location.countryName,
+      }),
     });
+
+    // Increment new location in Redis
+    if (location) {
+      try {
+        await this.incrementLocationList(location.cityName, location.countryName);
+      } catch (error) {
+        console.error('Failed to increment new location counter in Redis:', error);
+      }
+    }
+
     return { user: this.mapUserToPrivateUserDto(user) };
   }
 
