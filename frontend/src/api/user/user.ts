@@ -4,7 +4,7 @@ import { createApiResponseSchema } from '../schema';
 import { UserSchema, type SexualOrientation, type Gender, type User, type Matches, MatchesSchema } from '@/types/user';
 import { getToastMessage } from '@/lib/messageMap';
 import { z } from 'zod';
-import { type LocationEntry, LocationListSchema } from '@/types/browse';
+import { type LocationEntry, LocationListSchema, type GetUsersResponse, GetUsersResponseSchema } from '@/types/browse';
 
 interface UpdateProfileRequest {
   firstName?: string;
@@ -68,5 +68,44 @@ export const userApi = {
       throw new Error(getToastMessage(response.messageKey));
     }
     return response.data.users;
+  },
+
+  getUsers: async (params?: {
+    cursor?: string;
+    minAge?: number;
+    maxAge?: number;
+    minFame?: number;
+    maxFame?: number;
+    cities?: string[];
+    countries?: string[];
+    tags?: string[];
+    firstName?: string;
+  }): Promise<GetUsersResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.cursor) queryParams.append('cursor', params.cursor);
+    if (params?.minAge !== undefined) queryParams.append('minAge', params.minAge.toString());
+    if (params?.maxAge !== undefined) queryParams.append('maxAge', params.maxAge.toString());
+    if (params?.minFame !== undefined) queryParams.append('minFame', params.minFame.toString());
+    if (params?.maxFame !== undefined) queryParams.append('maxFame', params.maxFame.toString());
+    if (params?.cities && params.cities.length > 0) {
+      queryParams.append('cities', params.cities.join(','));
+    }
+    if (params?.countries && params.countries.length > 0) {
+      queryParams.append('countries', params.countries.join(','));
+    }
+    if (params?.tags && params.tags.length > 0) {
+      queryParams.append('tags', params.tags.join(','));
+    }
+    if (params?.firstName) queryParams.append('firstName', params.firstName);
+
+    console.log('queryParams:', queryParams.toString());
+
+    const url = `/users/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await parseApiResponse(apiClient.get(url), createApiResponseSchema(GetUsersResponseSchema));
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+    console.log('getUsers API response:', response.data);
+    return response.data;
   },
 };

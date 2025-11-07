@@ -4,7 +4,7 @@ export const InterestSchema = z.object({
   id: z.string(),
   name: z.string(),
 });
-export type Interest = z.infer<typeof InterestSchema>;;
+export type Interest = z.infer<typeof InterestSchema>;
 
 export const GenderSchema = z.enum(['male', 'female']);
 export type Gender = z.infer<typeof GenderSchema>;

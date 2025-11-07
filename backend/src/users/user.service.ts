@@ -22,6 +22,8 @@ import {
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { RedisRepository } from 'src/redis/repositories/redis.repository';
 import { GetLocationListResponseDto, LocationEntryDto } from './dto/get-location-list/get-location-list.dto';
+import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
+import { GetUsersResponseDto, UserListItemDto } from './dto/get-users/get-users-response.dto';
 
 const IPAPIResponseSchema = z.discriminatedUnion('status', [
   z.object({
@@ -79,6 +81,8 @@ type Location = {
   cityName: string;
   countryName: string;
 }
+
+const MAX_PAGE_SIZE = 10;
 
 @Injectable()
 export class UserService {
@@ -144,6 +148,85 @@ export class UserService {
       })) : [],
     };
   }
+
+  private calculateAge(dateOfBirth: Date | null): number | null {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  private mapUserToUserListItemDto(user: User, liked: boolean): UserListItemDto {
+    const age = this.calculateAge(user.date_of_birth);
+    const profilePicture = user.photos?.find(p => p.is_profile_pic)?.url || user.photos?.[0]?.url || '';
+
+    return {
+      id: user.id,
+      profilePicture,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      age: age || 0,
+      fameRating: user.fame_rating,
+      cityName: user.city_name || null,
+      countryName: user.country_name || null,
+      interests: user.interests?.map(i => ({ id: i.id, name: i.name })) || [],
+      liked,
+    };
+  }
+
+  async getUsers(userId: string, getUsersRequestDto: GetUsersRequestDto): Promise<GetUsersResponseDto> {
+    try {
+      const filters = {
+        cursor: getUsersRequestDto.cursor,
+        minAge: getUsersRequestDto.minAge,
+        maxAge: getUsersRequestDto.maxAge,
+        minFame: getUsersRequestDto.minFame,
+        maxFame: getUsersRequestDto.maxFame,
+        cities: getUsersRequestDto.cities,
+        countries: getUsersRequestDto.countries,
+        tags: getUsersRequestDto.tags,
+        firstName: getUsersRequestDto.firstName,
+      };
+
+      const users = await this.usersRepository.getUsers(userId, filters, MAX_PAGE_SIZE + 1);
+
+      const likedUserIds = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+      const likedUserIdsSet = new Set(likedUserIds.map(like => like.to_user_id));
+
+      const hasMore = users.length > MAX_PAGE_SIZE;
+      const usersToReturn = hasMore ? users.slice(0, MAX_PAGE_SIZE) : users;
+
+      const userListItems = usersToReturn.map(user =>
+        this.mapUserToUserListItemDto(user, likedUserIdsSet.has(user.id))
+      );
+
+      // Store in the cursor the last user infos so we can use it in the next request.
+      let nextCursor: string | null = null;
+      if (hasMore && usersToReturn.length > 0) {
+        const lastUser = usersToReturn[usersToReturn.length - 1];
+        const lastTimeActive = lastUser.last_time_active
+          ? lastUser.last_time_active.toISOString()
+          : 'null';
+        const createdAt = lastUser.created_at.toISOString();
+        nextCursor = `${lastTimeActive},${createdAt},${lastUser.id}`;
+      }
+
+      return {
+        users: userListItems,
+        nextCursor,
+        hasMore,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
 
   async resolveCityNameAndCountryNameByLatitudeAndLongitude(latitude: number, longitude: number): Promise<{ cityName: string, countryName: string }> {
     try {
@@ -486,7 +569,6 @@ export class UserService {
       throw new CustomHttpException('USER_LOCATION_NOT_SET', 'User location not set', 'ERROR_USER_LOCATION_NOT_SET', HttpStatus.BAD_REQUEST);
     }
     const locationKeys: string[] = await this.redisRepository.getEntries(`location:*`);
-    console.log('Location keys:', locationKeys);
     if (locationKeys.length === 0) {
       return { locations: [] };
     }

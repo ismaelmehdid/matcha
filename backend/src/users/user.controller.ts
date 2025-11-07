@@ -14,6 +14,8 @@ import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-match
 import { LikeUserRequestDto } from './dto/like-user/like-user-request.dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { GetLocationListResponseDto } from './dto/get-location-list/get-location-list.dto';
+import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
+import { GetUsersResponseDto } from './dto/get-users/get-users-response.dto';
 
 @Controller('users')
 export class UserController {
@@ -66,6 +68,16 @@ export class UserController {
   async getLocationList(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: GetLocationListResponseDto, messageKey: string }> {
     const locationList: GetLocationListResponseDto = await this.userService.getLocationList(userId);
     return { success: true, data: locationList, messageKey: 'SUCCESS_GET_LOCATION_LIST' };
+  }
+
+  @Get('users')
+  @UseGuards(AuthGuard)
+  async getUsers(
+    @CurrentUser('sub') userId: string,
+    @Query() getUsersRequestDto: GetUsersRequestDto,
+  ): Promise<{ success: boolean, data: GetUsersResponseDto, messageKey: string }> {
+    const result: GetUsersResponseDto = await this.userService.getUsers(userId, getUsersRequestDto);
+    return { success: true, data: result, messageKey: 'SUCCESS_GET_USERS' };
   }
 
   @Get('resolve-location-by-latitude-and-longitude')

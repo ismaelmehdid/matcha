@@ -18,7 +18,6 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { data: notifications } = useNotifications();
@@ -98,7 +97,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="p-6 flex-1 flex flex-col min-h-0">{children}</main>
+      <main className="p-6 flex-1 flex flex-col">{children}</main>
 
       {/* Footer - Hidden on mobile due to bottom nav */}
       <footer className="hidden md:block border-t bg-card py-3 mt-auto">

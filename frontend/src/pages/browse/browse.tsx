@@ -1,34 +1,39 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/layouts/AppLayout";
-import { columns, type UserRow } from "./columns";
+import { columns } from "./columns";
 import { DataTable } from "./data-table";
+import { useUsers } from "@/hooks/useUsers";
+import type { Filters } from "@/hooks/useUsers";
 
-function getData(): UserRow[] {
-  // Fetch data from API here.
-  return [
-    {
-      id: "728ed52f",
-      profilePicture: "https://randomuser.me/api/portraits/women/32.jpg",
-      firstName: "John",
-      lastName: "Doe",
-      age: 25,
-      fameRating: 4.5,
-      location: "Paris, France",
-      interests: [
-        { id: "1f7384d0-1c0c-409d-aef7-5d6a0c68c6ea", name: "#Travel" },
-        { id: "c5054e43-ec6e-4b15-ada9-ca46534ad3cd", name: "#Music" },
-        { id: "533513e9-04be-46bd-90d7-4912893bc59f", name: "#Gym" },
-      ],
-      liked: false,
-    },
-  ];
-}
+const DEFAULT_FILTERS: Filters = {
+  minAge: 18,
+  maxAge: 99,
+  minFame: 0,
+  maxFame: 100,
+  locations: [],
+  tags: [],
+  firstName: "",
+};
 
 export function Browse() {
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const { users, isLoading, hasMore, fetchNextPage, isFetchingNextPage } =
+    useUsers(filters);
 
-  const data = getData();
   return (
     <AppLayout>
-      <DataTable columns={columns} data={data} />
+      <div className="flex-1 flex flex-col min-h-0">
+        <DataTable
+          columns={columns}
+          data={users}
+          isLoading={isLoading}
+          hasMore={hasMore}
+          fetchNextPage={fetchNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          setFilters={setFilters}
+          filters={filters}
+        />
+      </div>
     </AppLayout>
   );
 }

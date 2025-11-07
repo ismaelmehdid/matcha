@@ -1,4 +1,11 @@
-import { useCallback, useState, useEffect, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  type ChangeEvent,
+} from "react";
 import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
@@ -18,8 +25,6 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import type { Column } from "@tanstack/react-table";
-
 function RangeField({
   label,
   value,
@@ -116,25 +121,26 @@ function RangeField({
   );
 }
 
-interface DataTableRangeFilterProps<TData, TValue> {
-  column?: Column<TData, TValue>;
+interface DataTableRangeFilterProps {
   title?: string;
+  setFilter?: (filter: { from: number; to: number }) => void;
   min: number;
   max: number;
+  currentFrom?: number;
+  currentTo?: number;
 }
 
-export function DataTableRangeFilter<TData, TValue>({
-  column,
-  title,
-  min,
-  max,
-}: DataTableRangeFilterProps<TData, TValue>) {
-  const filterValue = column?.getFilterValue() as
-    | { from: number; to: number }
-    | undefined;
-  const appliedFrom = filterValue?.from ?? min;
-  const appliedTo = filterValue?.to ?? max;
-  const isActive = filterValue !== undefined;
+export interface DataTableRangeFilterRef {
+  getValue: () => { from: number; to: number };
+}
+
+export const DataTableRangeFilter = forwardRef<
+  DataTableRangeFilterRef,
+  DataTableRangeFilterProps
+>(({ title, setFilter, min, max, currentFrom, currentTo }, ref) => {
+  const appliedFrom = currentFrom !== undefined ? currentFrom : min;
+  const appliedTo = currentTo !== undefined ? currentTo : max;
+  const isActive = currentFrom !== undefined || currentTo !== undefined;
 
   const [localFrom, setLocalFrom] = useState(appliedFrom);
   const [localTo, setLocalTo] = useState(appliedTo);
@@ -145,6 +151,10 @@ export function DataTableRangeFilter<TData, TValue>({
     setLocalTo(appliedTo);
   }, [appliedFrom, appliedTo]);
 
+  useImperativeHandle(ref, () => ({
+    getValue: () => ({ from: localFrom, to: localTo }),
+  }));
+
   const handleFromChange = useCallback(
     (newFrom: number) => {
       let newTo = localTo;
@@ -153,14 +163,10 @@ export function DataTableRangeFilter<TData, TValue>({
         setLocalTo(newTo);
       }
       setLocalFrom(newFrom);
-
-      if (newFrom !== min || newTo !== max) {
-        column?.setFilterValue({ from: newFrom, to: newTo });
-      } else {
-        column?.setFilterValue(undefined);
-      }
+      const finalTo = newFrom > localTo ? newFrom : localTo;
+      setFilter?.({ from: newFrom, to: finalTo });
     },
-    [localTo, column, min, max]
+    [localTo, setFilter]
   );
 
   const handleToChange = useCallback(
@@ -171,40 +177,20 @@ export function DataTableRangeFilter<TData, TValue>({
         setLocalFrom(newFrom);
       }
       setLocalTo(newTo);
-
-      // Apply filter immediately
-      if (newFrom !== min || newTo !== max) {
-        column?.setFilterValue({ from: newFrom, to: newTo });
-      } else {
-        column?.setFilterValue(undefined);
-      }
+      setFilter?.({ from: newFrom, to: newTo });
     },
-    [localFrom, column, min, max]
+    [localFrom, setFilter]
   );
 
   const handleClear = useCallback(() => {
-    column?.setFilterValue(undefined);
     setLocalFrom(min);
     setLocalTo(max);
-  }, [column, min, max]);
+    setFilter?.({ from: min, to: max });
+  }, [min, max, setFilter]);
 
-  const handleOpenChange = useCallback(
-    (newOpen: boolean) => {
-      setOpen(newOpen);
-
-      // When closing the popover, apply any pending changes
-      if (!newOpen) {
-        if (localFrom !== appliedFrom || localTo !== appliedTo) {
-          if (localFrom !== min || localTo !== max) {
-            column?.setFilterValue({ from: localFrom, to: localTo });
-          } else {
-            column?.setFilterValue(undefined);
-          }
-        }
-      }
-    },
-    [localFrom, localTo, appliedFrom, appliedTo, column, min, max]
-  );
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    setOpen(newOpen);
+  }, []);
 
   const hasChanges = localFrom !== appliedFrom || localTo !== appliedTo;
 
@@ -267,4 +253,6 @@ export function DataTableRangeFilter<TData, TValue>({
       </PopoverContent>
     </Popover>
   );
-}
+});
+
+DataTableRangeFilter.displayName = "DataTableRangeFilter";

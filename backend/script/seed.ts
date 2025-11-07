@@ -41,7 +41,7 @@ const redisClient = createClient({
   url: `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
 });
 
-const NUM_USERS = 50;
+const NUM_USERS = 500;
 const MAIN_USER_EMAIL = process.env.DEV_ACCOUNT_EMAIL || 'test@example.com';
 const MAIN_USER_USERNAME = process.env.DEV_ACCOUNT_USERNAME || 'testuser';
 const MAIN_USER_FIRSTNAME = process.env.DEV_ACCOUNT_FIRSTNAME || 'Test';

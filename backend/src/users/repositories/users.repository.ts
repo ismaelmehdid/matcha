@@ -388,4 +388,164 @@ export class UsersRepository {
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  async getUsers(
+    currentUserId: string,
+    filters: {
+      cursor?: string;
+      minAge?: number;
+      maxAge?: number;
+      minFame?: number;
+      maxFame?: number;
+      cities?: string[];
+      countries?: string[];
+      tags?: string[];
+      firstName?: string;
+    },
+    limit: number,
+  ): Promise<User[]> {
+    try {
+      const conditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      conditions.push(`u.id != $${paramIndex}`);
+      params.push(currentUserId);
+      paramIndex++;
+
+      conditions.push(`u.profile_completed = TRUE`);
+
+      // Age range
+      if (filters.minAge !== undefined) {
+        const maxBirthDate = new Date();
+        maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.minAge);
+        conditions.push(`u.date_of_birth <= $${paramIndex}`);
+        params.push(maxBirthDate.toISOString());
+        paramIndex++;
+      }
+      if (filters.maxAge !== undefined) {
+        const minBirthDate = new Date();
+        minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.maxAge);
+        conditions.push(`u.date_of_birth >= $${paramIndex}`);
+        params.push(minBirthDate.toISOString());
+        paramIndex++;
+      }
+
+      // Fame rating range
+      if (filters.minFame !== undefined) {
+        conditions.push(`u.fame_rating >= $${paramIndex}`);
+        params.push(filters.minFame);
+        paramIndex++;
+      }
+      if (filters.maxFame !== undefined) {
+        conditions.push(`u.fame_rating <= $${paramIndex}`);
+        params.push(filters.maxFame);
+        paramIndex++;
+      }
+
+      // Location filter
+      if (filters.cities && filters.countries && filters.cities.length > 0 && filters.countries.length > 0) {
+        if (filters.cities.length === filters.countries.length) {
+          const locationConditions: string[] = [];
+          filters.cities.forEach((city, index) => {
+            const country = filters.countries![index];
+            if (city && country) {
+              locationConditions.push(`(u.city_name = $${paramIndex} AND u.country_name = $${paramIndex + 1})`);
+              params.push(city);
+              params.push(country);
+              paramIndex += 2;
+            }
+          });
+          if (locationConditions.length > 0) {
+            conditions.push(`(${locationConditions.join(' OR ')})`);
+          }
+        } else {
+          // If arrays have different lengths, match independently. Should not happen in our case, but just in case.
+          if (filters.cities.length > 0) {
+            conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+            params.push(filters.cities);
+            paramIndex++;
+          }
+          if (filters.countries.length > 0) {
+            conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+            params.push(filters.countries);
+            paramIndex++;
+          }
+        }
+      } else {
+        // If only one array is provided, match independently. Same here but just in case.
+        if (filters.cities && filters.cities.length > 0) {
+          conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.cities);
+          paramIndex++;
+        }
+        if (filters.countries && filters.countries.length > 0) {
+          conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.countries);
+          paramIndex++;
+        }
+      }
+
+      // First name filter
+      if (filters.firstName) {
+        conditions.push(`u.first_name ILIKE $${paramIndex}`);
+        params.push(`%${filters.firstName}%`);
+        paramIndex++;
+      }
+
+      // Tags filter
+      if (filters.tags && filters.tags.length > 0) {
+        conditions.push(`
+          (
+            SELECT COUNT(DISTINCT i.name)
+            FROM user_interests ui
+            JOIN interests i ON ui.interest_id = i.id
+            WHERE ui.user_id = u.id
+            AND i.name = ANY($${paramIndex}::text[])
+          ) = $${paramIndex + 1}
+        `);
+        params.push(filters.tags);
+        params.push(filters.tags.length);
+        paramIndex += 2;
+      }
+
+      // Pagination:
+      // last_time_active > created_at > id
+      // If last_time_active is null we use created_at and if created_at is equal we use the smallest id.
+      if (filters.cursor) {
+        const [cursorLastTimeActive, cursorCreatedAt, cursorId] = filters.cursor.split(',');
+        const cursorLastTimeActiveValue = cursorLastTimeActive === 'null' ? null : cursorLastTimeActive;
+
+        if (cursorLastTimeActiveValue === null) {
+          conditions.push(`u.last_time_active IS NULL AND (u.created_at < $${paramIndex}::timestamp OR (u.created_at = $${paramIndex}::timestamp AND u.id < $${paramIndex + 1}::uuid))`);
+          params.push(cursorCreatedAt);
+          params.push(cursorId);
+          paramIndex += 2;
+        } else {
+          conditions.push(`(u.last_time_active IS NULL OR u.last_time_active < $${paramIndex}::timestamp OR (u.last_time_active = $${paramIndex}::timestamp AND u.created_at < $${paramIndex + 1}::timestamp) OR (u.last_time_active = $${paramIndex}::timestamp AND u.created_at = $${paramIndex + 1}::timestamp AND u.id < $${paramIndex + 2}::uuid))`);
+          params.push(cursorLastTimeActiveValue);
+          params.push(cursorCreatedAt);
+          params.push(cursorId);
+          paramIndex += 3;
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const query = `
+        ${USER_BASE_QUERY}
+        ${whereClause}
+        GROUP BY u.id
+        ORDER BY u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC
+        LIMIT $${paramIndex}
+      `;
+      params.push(limit);
+
+      const result = await this.db.query<User>(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

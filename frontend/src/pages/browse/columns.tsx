@@ -1,24 +1,12 @@
-import type { Interest } from "@/types/user";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import { Heart } from "lucide-react";
+import type { UserListItem } from "@/types/browse";
 
-export type UserRow = {
-  id: string;
-  profilePicture: string;
-  firstName: string;
-  lastName: string;
-  age: number;
-  fameRating: number;
-  location: string;
-  interests: Interest[];
-  liked: boolean;
-};
-
-export const columns: ColumnDef<UserRow>[] = [
+export const columns: ColumnDef<UserListItem>[] = [
   {
     accessorKey: "profilePicture",
     header: "Profile Picture",
@@ -47,36 +35,31 @@ export const columns: ColumnDef<UserRow>[] = [
   {
     accessorKey: "age",
     header: "Age",
-    filterFn: (row, id, filterValue) => {
-      if (!filterValue) return true;
-      const { from, to } = filterValue as { from: number; to: number };
-      const value = row.getValue(id) as number;
-      return value >= from && value <= to;
-    },
   },
   {
     accessorKey: "fameRating",
     header: "Fame Rating",
     cell: ({ row }) => {
-      return <div>{`${row.original.fameRating} ⭐`}</div>;
-    },
-    filterFn: (row, id, filterValue) => {
-      if (!filterValue) return true;
-      const { from, to } = filterValue as { from: number; to: number };
-      const value = row.getValue(id) as number;
-      return value >= from && value <= to;
+      return <div>{`${row.original.fameRating}`}</div>;
     },
   },
   {
-    accessorKey: "location",
+    id: "location",
     header: "Location",
-    filterFn: (row, id, filterValue) => {
-      if (!filterValue) return true;
-      const value = row.getValue(id) as string;
-      const filterStrings = filterValue as string[];
-      return filterStrings.some((filterStr) =>
-        value.toLowerCase().includes(filterStr.toLowerCase())
-      );
+    accessorFn: (row) => {
+      const city = row.cityName || "";
+      const country = row.countryName || "";
+      if (city && country) {
+        return `${city}, ${country}`;
+      }
+      return city || country || "-";
+    },
+    cell: ({ row }) => {
+      const city = row.original.cityName || "";
+      const country = row.original.countryName || "";
+      const value =
+        city && country ? `${city}, ${country}` : city || country || "-";
+      return <div>{value}</div>;
     },
   },
   {
@@ -93,16 +76,6 @@ export const columns: ColumnDef<UserRow>[] = [
         </div>
       );
     },
-    filterFn: (row, id, filterValue) => {
-      if (!filterValue || !Array.isArray(filterValue)) return true;
-      const interests: Interest[] = row.getValue(id);
-      const filterStrings: string[] = filterValue;
-      return interests.some((interest) =>
-        filterStrings.some(
-          (filterStr) => interest.name.toLowerCase() === filterStr.toLowerCase()
-        )
-      );
-    },
   },
   {
     id: "actions",
@@ -110,7 +83,7 @@ export const columns: ColumnDef<UserRow>[] = [
       return (
         <div className="flex gap-2">
           <Toggle
-            onPressedChange={(pressed: boolean) => {
+            onPressedChange={() => {
               row.original.liked = !row.original.liked;
             }}
             pressed={row.original.liked}

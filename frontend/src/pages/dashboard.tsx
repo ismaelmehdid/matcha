@@ -14,7 +14,7 @@ import {
   MessageCircle,
   MapPin,
 } from "lucide-react";
-import { Confetti } from "@/components/ui/confetti"
+import { Confetti } from "@/components/ui/confetti";
 
 export function Dashboard() {
   const { data: user, isLoading } = useCurrentUser();
@@ -36,7 +36,7 @@ export function Dashboard() {
   // Profile completed - show dashboard with AppLayout
   // TODO: make user photo not optional
   if (user && user.profileCompleted) {
-    const profilePic = user.photos?.find((p) => p.is_profile_pic);
+    const profilePic = user.photos?.find((p) => p.isProfilePic);
 
     return (
       <AppLayout>
@@ -73,7 +73,11 @@ export function Dashboard() {
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold">
                     {user.firstName} {user.lastName}
-                    {user.dateOfBirth && <span className="text-muted-foreground font-normal">, {calculateAge(user.dateOfBirth)}</span>}
+                    {user.dateOfBirth && (
+                      <span className="text-muted-foreground font-normal">
+                        , {calculateAge(user.dateOfBirth)}
+                      </span>
+                    )}
                   </h2>
                   <p className="text-muted-foreground text-sm mb-3">
                     @{user.username}
