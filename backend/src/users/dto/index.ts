@@ -9,6 +9,10 @@ export * from './create-user/create-user-response.dto';
 export * from './update-profile/update-profile-request.dto';
 export * from './update-profile/update-profile-response.dto';
 
+// Update location
+export * from './update-location/update-location-request.dto';
+export * from './update-location/update-location-response.dto';
+
 // Complete profile
 export * from './complete-profile/complete-profile-request.dto';
 export * from './complete-profile/complete-profile-response.dto';

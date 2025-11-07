@@ -74,7 +74,21 @@ const formSchema = z.object({
   photos: z.array(fileSchema).optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-});
+  cityName: z.string().min(1, "Please share your location to see matches nearby"),
+  countryName: z.string().min(1, "Please share your location to see matches nearby"),
+}).refine(
+  (data) => {
+    // If cityName and countryName are provided, latitude and longitude must also be provided
+    if (data.cityName && data.countryName) {
+      return data.latitude !== undefined && data.longitude !== undefined;
+    }
+    return true;
+  },
+  {
+    message: "Location coordinates are required when city and country are provided",
+    path: ["latitude"],
+  }
+);
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -194,6 +208,8 @@ export function CompleteProfileForm({ user }: { user: User }) {
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       dateOfBirth: "",
       gender: user.gender ?? undefined,
@@ -201,6 +217,10 @@ export function CompleteProfileForm({ user }: { user: User }) {
       biography: user.biography ?? "",
       interests: user.interests.map((interest) => interest.id),
       photos: [], // TODO: Once photos hosting is implemented, handle photos already uploaded by the user here if any
+      latitude: undefined,
+      longitude: undefined,
+      cityName: "",
+      countryName: "",
     },
   });
 
@@ -241,6 +261,9 @@ export function CompleteProfileForm({ user }: { user: User }) {
   };
 
   const onSubmit = (data: FormData) => {
+    if (data.latitude === undefined || data.longitude === undefined) {
+      return;
+    }
     // TODO: Add photo upload endpoint on backend
     completeProfile({
       dateOfBirth: data.dateOfBirth,
@@ -248,10 +271,8 @@ export function CompleteProfileForm({ user }: { user: User }) {
       sexualOrientation: data.sexualOrientation,
       biography: data.biography,
       interestIds: data.interests,
-      ...(data.latitude !== undefined && data.longitude !== undefined && {
-        latitude: data.latitude,
-        longitude: data.longitude,
-      }),
+      latitude: data.latitude,
+      longitude: data.longitude,
     });
   };
 
@@ -441,17 +462,30 @@ export function CompleteProfileForm({ user }: { user: User }) {
             </Field>
             <Field>
               <LocationSelector
-                onLocationSelect={(latitude, longitude) => {
-                  setValue("latitude", latitude, { shouldValidate: true });
-                  setValue("longitude", longitude, { shouldValidate: true });
+                showLabel
+                onLocationSelect={(location) => {
+                  setValue("latitude", location.latitude, { shouldValidate: true });
+                  setValue("longitude", location.longitude, { shouldValidate: true });
+                  setValue("cityName", location.cityName, { shouldValidate: true });
+                  setValue("countryName", location.countryName, { shouldValidate: true });
                 }}
                 currentLocation={
                   watch("latitude") && watch("longitude")
-                    ? { latitude: watch("latitude")!, longitude: watch("longitude")! }
+                    ? {
+                        latitude: watch("latitude")!,
+                        longitude: watch("longitude")!,
+                        cityName: watch("cityName"),
+                        countryName: watch("countryName"),
+                      }
                     : null
                 }
                 disabled={isPending}
               />
+              {errors.cityName && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.cityName.message}
+                </p>
+              )}
             </Field>
             <Field>
               <Button

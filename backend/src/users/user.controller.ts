@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Post, Put, UseGuards, HttpStatus, Req, Query } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Post, Put, UseGuards, HttpStatus, Query } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorators';
@@ -8,7 +7,9 @@ import {
   CompleteProfileRequestDto,
   GetCurrentUserResponseDto,
   UpdateProfileResponseDto,
-  CompleteProfileResponseDto
+  CompleteProfileResponseDto,
+  UpdateLocationRequestDto,
+  UpdateLocationResponseDto
 } from './dto';
 import { PrivateUserDto } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
@@ -33,11 +34,8 @@ export class UserController {
   async completeProfile(
     @CurrentUser('sub') userId: string,
     @Body() completeProfileDto: CompleteProfileRequestDto,
-    @Req() req: Request,
   ): Promise<{ success: boolean, data: CompleteProfileResponseDto, messageKey: string }> {
-    // Extract IP address from request (handle proxies)
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || undefined;
-    const result: CompleteProfileResponseDto = await this.userService.completeProfile(userId, completeProfileDto, ipAddress);
+    const result: CompleteProfileResponseDto = await this.userService.completeProfile(userId, completeProfileDto);
     return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_COMPLETED' };
   }
 
@@ -49,6 +47,16 @@ export class UserController {
   ): Promise<{ success: boolean, data: UpdateProfileResponseDto, messageKey: string }> {
     const result: UpdateProfileResponseDto = await this.userService.updateProfile(userId, updateProfileDto);
     return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_UPDATED' };
+  }
+
+  @Put('me/location')
+  @UseGuards(AuthGuard)
+  async updateLocation(
+    @CurrentUser('sub') userId: string,
+    @Body() updateLocationDto: UpdateLocationRequestDto,
+  ): Promise<{ success: boolean, data: UpdateLocationResponseDto, messageKey: string }> {
+    const result = await this.userService.updateLocation(userId, updateLocationDto.latitude, updateLocationDto.longitude);
+    return { success: true, data: result, messageKey: 'SUCCESS_LOCATION_UPDATED' };
   }
 
   @Get('matches')
