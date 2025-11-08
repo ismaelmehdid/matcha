@@ -1,33 +1,8 @@
-import { IsArray, IsNumber, IsOptional, IsString, Min, Max, MinLength, MaxLength, ArrayMinSize, ArrayMaxSize } from "class-validator";
+import { IsArray, IsNumber, IsOptional, IsString, Min, Max, MinLength, MaxLength } from "class-validator";
 import { Type, Transform } from "class-transformer";
+import { type Sort } from "../get-users/get-users-request.dto";
 
-export enum SortOrder {
-  ASC = 'asc',
-  DESC = 'desc',
-}
-
-export interface SortByAge {
-  sortBy: 'age';
-  sortOrder: SortOrder;
-}
-
-export interface SortByFameRating {
-  sortBy: 'fameRating';
-  sortOrder: SortOrder;
-}
-
-export interface SortByInterests {
-  sortBy: 'interests';
-  sortOrder: SortOrder;
-}
-
-export type Sort = SortByAge | SortByFameRating | SortByInterests;
-
-export class GetUsersRequestDto {
-  @IsOptional()
-  @IsString({ message: 'Cursor must be a string' })
-  cursor?: string;
-
+export class GetSuggestedUsersRequestDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'Min age must be a number' })
@@ -108,3 +83,4 @@ export class GetUsersRequestDto {
   })
   sort?: Sort;
 }
+

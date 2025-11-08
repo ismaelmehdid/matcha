@@ -105,6 +105,165 @@ export class UsersRepository {
     }
   }
 
+  // Builds filter conditions for user queries (age, fame, location, firstName, tags)
+  private buildFilterConditions(
+    filters: {
+      minAge?: number;
+      maxAge?: number;
+      minFame?: number;
+      maxFame?: number;
+      cities?: string[];
+      countries?: string[];
+      tags?: string[];
+      firstName?: string;
+    },
+    conditions: string[],
+    params: any[],
+    paramIndex: number,
+  ): { conditions: string[]; params: any[]; paramIndex: number } {
+    // Age range filter
+    if (filters.minAge !== undefined) {
+      const maxBirthDate = new Date();
+      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.minAge);
+      conditions.push(`u.date_of_birth <= $${paramIndex}`);
+      params.push(maxBirthDate.toISOString());
+      paramIndex++;
+    }
+    if (filters.maxAge !== undefined) {
+      const minBirthDate = new Date();
+      minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.maxAge);
+      conditions.push(`u.date_of_birth >= $${paramIndex}`);
+      params.push(minBirthDate.toISOString());
+      paramIndex++;
+    }
+
+    // Fame rating range filter
+    if (filters.minFame !== undefined) {
+      conditions.push(`u.fame_rating >= $${paramIndex}`);
+      params.push(filters.minFame);
+      paramIndex++;
+    }
+    if (filters.maxFame !== undefined) {
+      conditions.push(`u.fame_rating <= $${paramIndex}`);
+      params.push(filters.maxFame);
+      paramIndex++;
+    }
+
+    // Location filter
+    if (filters.cities && filters.countries && filters.cities.length > 0 && filters.countries.length > 0) {
+      if (filters.cities.length === filters.countries.length) {
+        const locationConditions: string[] = [];
+        filters.cities.forEach((city, index) => {
+          const country = filters.countries![index];
+          if (city && country) {
+            locationConditions.push(`(u.city_name = $${paramIndex} AND u.country_name = $${paramIndex + 1})`);
+            params.push(city);
+            params.push(country);
+            paramIndex += 2;
+          }
+        });
+        if (locationConditions.length > 0) {
+          conditions.push(`(${locationConditions.join(' OR ')})`);
+        }
+      } else {
+        if (filters.cities.length > 0) {
+          conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.cities);
+          paramIndex++;
+        }
+        if (filters.countries.length > 0) {
+          conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.countries);
+          paramIndex++;
+        }
+      }
+    } else {
+      if (filters.cities && filters.cities.length > 0) {
+        conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+        params.push(filters.cities);
+        paramIndex++;
+      }
+      if (filters.countries && filters.countries.length > 0) {
+        conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+        params.push(filters.countries);
+        paramIndex++;
+      }
+    }
+
+    // First name filter
+    if (filters.firstName) {
+      conditions.push(`u.first_name ILIKE $${paramIndex}`);
+      params.push(`%${filters.firstName}%`);
+      paramIndex++;
+    }
+
+    // Tags filter
+    if (filters.tags && filters.tags.length > 0) {
+      conditions.push(`
+        (
+          SELECT COUNT(DISTINCT i.name)
+          FROM user_interests ui
+          JOIN interests i ON ui.interest_id = i.id
+          WHERE ui.user_id = u.id
+          AND i.name = ANY($${paramIndex}::text[])
+        ) = $${paramIndex + 1}
+      `);
+      params.push(filters.tags);
+      params.push(filters.tags.length);
+      paramIndex += 2;
+    }
+
+    return { conditions, params, paramIndex };
+  }
+
+  // Builds ORDER BY clause for user queries
+  private buildOrderByClause(
+    sort: Sort | undefined,
+    currentUserId: string,
+    params: any[],
+    paramIndex: number,
+    includeTiebreakers: boolean = true,
+  ): { orderByClause: string; params: any[]; paramIndex: number } {
+    let orderByClause = '';
+
+    if (sort) {
+      switch (sort.sortBy) {
+        case 'age':
+          const ageSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
+          orderByClause = `ORDER BY EXTRACT(YEAR FROM AGE(u.date_of_birth)) ${ageSortOrder}`;
+          break;
+        case 'fameRating':
+          const fameSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
+          orderByClause = `ORDER BY u.fame_rating ${fameSortOrder}`;
+          break;
+        case 'interests':
+          const interestsSortOrder = sort.sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY (
+            SELECT COUNT(DISTINCT ui2.interest_id)
+            FROM user_interests ui2
+            WHERE ui2.user_id = u.id
+            AND ui2.interest_id IN (
+              SELECT interest_id
+              FROM user_interests
+              WHERE user_id = $${paramIndex}
+            )
+          ) ${interestsSortOrder}`;
+          params.push(currentUserId);
+          paramIndex++;
+          break;
+      }
+      if (includeTiebreakers) {
+        orderByClause += `, u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
+      }
+    } else {
+      if (includeTiebreakers) {
+        orderByClause = `ORDER BY u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
+      }
+    }
+
+    return { orderByClause, params, paramIndex };
+  }
+
   async findById(id: string): Promise<User | null> {
     try {
       const result = await this.db.query<User>(`${USER_BASE_QUERY} WHERE u.id = $1 GROUP BY u.id`, [id]);
@@ -406,6 +565,16 @@ export class UsersRepository {
     }
   }
 
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const result = await this.db.query<User>(`${USER_BASE_QUERY} GROUP BY u.id`);
+      return result.rows;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   async getUsers(
     currentUserId: string,
     filters: {
@@ -423,8 +592,8 @@ export class UsersRepository {
     sort?: Sort,
   ): Promise<User[]> {
     try {
-      const conditions: string[] = [];
-      const params: any[] = [];
+      let conditions: string[] = [];
+      let params: any[] = [];
       let paramIndex = 1;
 
       conditions.push(`u.id != $${paramIndex}`);
@@ -433,99 +602,11 @@ export class UsersRepository {
 
       conditions.push(`u.profile_completed = TRUE`);
 
-      // Age range
-      if (filters.minAge !== undefined) {
-        const maxBirthDate = new Date();
-        maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.minAge);
-        conditions.push(`u.date_of_birth <= $${paramIndex}`);
-        params.push(maxBirthDate.toISOString());
-        paramIndex++;
-      }
-      if (filters.maxAge !== undefined) {
-        const minBirthDate = new Date();
-        minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.maxAge);
-        conditions.push(`u.date_of_birth >= $${paramIndex}`);
-        params.push(minBirthDate.toISOString());
-        paramIndex++;
-      }
-
-      // Fame rating range
-      if (filters.minFame !== undefined) {
-        conditions.push(`u.fame_rating >= $${paramIndex}`);
-        params.push(filters.minFame);
-        paramIndex++;
-      }
-      if (filters.maxFame !== undefined) {
-        conditions.push(`u.fame_rating <= $${paramIndex}`);
-        params.push(filters.maxFame);
-        paramIndex++;
-      }
-
-      // Location filter
-      if (filters.cities && filters.countries && filters.cities.length > 0 && filters.countries.length > 0) {
-        if (filters.cities.length === filters.countries.length) {
-          const locationConditions: string[] = [];
-          filters.cities.forEach((city, index) => {
-            const country = filters.countries![index];
-            if (city && country) {
-              locationConditions.push(`(u.city_name = $${paramIndex} AND u.country_name = $${paramIndex + 1})`);
-              params.push(city);
-              params.push(country);
-              paramIndex += 2;
-            }
-          });
-          if (locationConditions.length > 0) {
-            conditions.push(`(${locationConditions.join(' OR ')})`);
-          }
-        } else {
-          // If arrays have different lengths, match independently. Should not happen in our case, but just in case.
-          if (filters.cities.length > 0) {
-            conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
-            params.push(filters.cities);
-            paramIndex++;
-          }
-          if (filters.countries.length > 0) {
-            conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
-            params.push(filters.countries);
-            paramIndex++;
-          }
-        }
-      } else {
-        // If only one array is provided, match independently. Same here but just in case.
-        if (filters.cities && filters.cities.length > 0) {
-          conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
-          params.push(filters.cities);
-          paramIndex++;
-        }
-        if (filters.countries && filters.countries.length > 0) {
-          conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
-          params.push(filters.countries);
-          paramIndex++;
-        }
-      }
-
-      // First name filter
-      if (filters.firstName) {
-        conditions.push(`u.first_name ILIKE $${paramIndex}`);
-        params.push(`%${filters.firstName}%`);
-        paramIndex++;
-      }
-
-      // Tags filter
-      if (filters.tags && filters.tags.length > 0) {
-        conditions.push(`
-          (
-            SELECT COUNT(DISTINCT i.name)
-            FROM user_interests ui
-            JOIN interests i ON ui.interest_id = i.id
-            WHERE ui.user_id = u.id
-            AND i.name = ANY($${paramIndex}::text[])
-          ) = $${paramIndex + 1}
-        `);
-        params.push(filters.tags);
-        params.push(filters.tags.length);
-        paramIndex += 2;
-      }
+      // Build filter conditions using shared method
+      const filterResult = this.buildFilterConditions(filters, conditions, params, paramIndex);
+      conditions = filterResult.conditions;
+      params = filterResult.params;
+      paramIndex = filterResult.paramIndex;
 
       // Pagination cursor handling
       // When sorting is applied, cursor format: sortValue,last_time_active,created_at,id
@@ -594,38 +675,11 @@ export class UsersRepository {
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-      // Sorting clause
-      let orderByClause = '';
-      if (sort) {
-        switch (sort.sortBy) {
-          case 'age':
-            const ageSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
-            orderByClause = `ORDER BY EXTRACT(YEAR FROM AGE(u.date_of_birth)) ${ageSortOrder}`;
-            break;
-          case 'fameRating':
-            const fameSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
-            orderByClause = `ORDER BY u.fame_rating ${fameSortOrder}`;
-            break;
-          case 'interests':
-            const interestsSortOrder = sort.sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
-            orderByClause = `ORDER BY (
-              SELECT COUNT(DISTINCT ui2.interest_id)
-              FROM user_interests ui2
-              WHERE ui2.user_id = u.id
-              AND ui2.interest_id IN (
-                SELECT interest_id
-                FROM user_interests
-                WHERE user_id = $${paramIndex}
-              )
-            ) ${interestsSortOrder}`;
-            params.push(currentUserId);
-            paramIndex++;
-            break;
-        }
-        orderByClause += `, u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
-      } else {
-        orderByClause = `ORDER BY u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
-      }
+      // Build ORDER BY clause using shared method
+      const orderByResult = this.buildOrderByClause(sort, currentUserId, params, paramIndex, true);
+      const orderByClause = orderByResult.orderByClause;
+      params = orderByResult.params;
+      paramIndex = orderByResult.paramIndex;
 
       const query = `
         ${USER_BASE_QUERY}

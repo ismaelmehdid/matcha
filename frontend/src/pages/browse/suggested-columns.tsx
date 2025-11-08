@@ -7,7 +7,7 @@ import { Heart } from "lucide-react";
 import type { UserListItem } from "@/types/browse";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 
-export function createColumns(
+export function createSuggestedColumns(
   onLike: (userId: string) => void,
   onUnlike: (userId: string) => void
 ): ColumnDef<UserListItem>[] {
@@ -32,6 +32,10 @@ export function createColumns(
     {
       accessorKey: "firstName",
       header: "First Name",
+      filterFn: (row, id, value) => {
+        const firstName = row.getValue(id) as string;
+        return firstName?.toLowerCase().includes(value.toLowerCase()) ?? false;
+      },
     },
     {
       accessorKey: "lastName",
@@ -43,6 +47,19 @@ export function createColumns(
       header: ({ column }) => {
         return <DataTableColumnHeader column={column} title="Age" />;
       },
+      filterFn: (row, id, value) => {
+        const age = row.getValue(id) as number;
+        if (
+          !value ||
+          typeof value !== "object" ||
+          !("min" in value) ||
+          !("max" in value)
+        ) {
+          return true;
+        }
+        const { min, max } = value as { min: number; max: number };
+        return age >= min && age <= max;
+      },
     },
     {
       accessorKey: "fameRating",
@@ -52,6 +69,19 @@ export function createColumns(
       },
       cell: ({ row }) => {
         return <div>{`${row.original.fameRating}`}</div>;
+      },
+      filterFn: (row, id, value) => {
+        const fameRating = row.getValue(id) as number;
+        if (
+          !value ||
+          typeof value !== "object" ||
+          !("min" in value) ||
+          !("max" in value)
+        ) {
+          return true;
+        }
+        const { min, max } = value as { min: number; max: number };
+        return fameRating >= min && fameRating <= max;
       },
     },
     {
@@ -71,6 +101,16 @@ export function createColumns(
         const value =
           city && country ? `${city}, ${country}` : city || country || "-";
         return <div>{value}</div>;
+      },
+      filterFn: (row, _id, value) => {
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          return true;
+        }
+        const city = row.original.cityName || "";
+        const country = row.original.countryName || "";
+        const location =
+          city && country ? `${city}, ${country}` : city || country || "-";
+        return value.includes(location);
       },
     },
     {
@@ -96,6 +136,17 @@ export function createColumns(
             ))}
           </div>
         );
+      },
+      filterFn: (row, id, value) => {
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          return true;
+        }
+        const interests = row.getValue(id) as Array<{
+          id: string;
+          name: string;
+        }>;
+        const interestNames = interests.map((i) => i.name);
+        return value.some((tag: string) => interestNames.includes(tag));
       },
     },
     {

@@ -6,6 +6,7 @@ import { InterestRepository } from 'src/interests/repository/interest.repository
 import { DatabaseService } from 'src/database/database.service';
 import { LikesRepository } from './repositories/likes.repository';
 import { LikeSent, LikeReceived } from './repositories/likes.repository';
+import { BlocksRepository } from './repositories/blocks.repository';
 import { ChatRepository } from 'src/chat/repositories/chat.repository';
 import { NotificationService } from 'src/notifications/notification.service';
 import { NotificationType } from 'src/common/enums/notification-type';
@@ -24,6 +25,8 @@ import { RedisRepository } from 'src/redis/repositories/redis.repository';
 import { GetLocationListResponseDto, LocationEntryDto } from './dto/get-location-list/get-location-list.dto';
 import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
 import { GetUsersResponseDto, UserListItemDto } from './dto/get-users/get-users-response.dto';
+import { GetSuggestedUsersRequestDto } from './dto/get-suggested-users/get-suggested-users-request.dto';
+import { Gender, SexualOrientation } from './enums/user.enums';
 
 const IPAPIResponseSchema = z.discriminatedUnion('status', [
   z.object({
@@ -83,6 +86,7 @@ type Location = {
 }
 
 const MAX_PAGE_SIZE = 10;
+const SUGGESTED_USERS_LIMIT = 50;
 
 @Injectable()
 export class UserService {
@@ -91,6 +95,7 @@ export class UserService {
     private readonly interestRepository: InterestRepository,
     private readonly db: DatabaseService,
     private readonly likesRepository: LikesRepository,
+    private readonly blocksRepository: BlocksRepository,
     private readonly chatRepository: ChatRepository,
     private readonly notificationService: NotificationService,
     private readonly redisRepository: RedisRepository,
@@ -255,6 +260,203 @@ export class UserService {
     }
   }
 
+  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private sharedTagsCount(tags1: string[], tags2: string[]): number {
+    return tags1.filter(tag => tags2.includes(tag)).length;
+  }
+
+  private computeScore(user: User, currentUser: PrivateUserDto): number {
+    if (!user.latitude || !user.longitude || !currentUser.latitude || !currentUser.longitude || !user.interests || !currentUser.interests) {
+      return 0;
+    }
+    const distanceScore = 1 / (1 + this.getDistance(user.latitude, user.longitude, currentUser.latitude, currentUser.longitude));
+    const tagsScore = this.sharedTagsCount(user.interests.map(i => i.id), currentUser.interests.map(i => i.id));
+    const fameScore = user.fame_rating;
+
+    return distanceScore * 0.5 + tagsScore * 0.3 + fameScore * 0.2;
+  }
+
+  private isSexualOrientationCompatible(
+    currentUserGender: Gender | null,
+    currentUserOrientation: SexualOrientation | null,
+    otherUserGender: Gender | null,
+    otherUserOrientation: SexualOrientation | null
+  ): boolean {
+    if (!currentUserGender || !currentUserOrientation || !otherUserGender || !otherUserOrientation) {
+      return true;
+    }
+
+    const currentUserCanSeeOther = this.canUserSeeGender(
+      currentUserOrientation,
+      currentUserGender,
+      otherUserGender
+    );
+
+    const otherUserCanSeeCurrent = this.canUserSeeGender(
+      otherUserOrientation,
+      otherUserGender,
+      currentUserGender
+    );
+
+    return currentUserCanSeeOther && otherUserCanSeeCurrent;
+  }
+
+  private canUserSeeGender(
+    userOrientation: SexualOrientation,
+    userGender: Gender,
+    targetGender: Gender
+  ): boolean {
+    if (userOrientation === SexualOrientation.BISEXUAL) {
+      return true;
+    }
+
+    if (userOrientation === SexualOrientation.STRAIGHT) {
+      return userGender !== targetGender;
+    }
+
+    if (userOrientation === SexualOrientation.GAY) {
+      return userGender === targetGender;
+    }
+
+    return true;
+  }
+
+  private getTopMatches(users: User[], currentUser: PrivateUserDto, limit = 50): User[] {
+    return users
+      .filter(u => u.id !== currentUser.id)
+      .map(u => ({ user: u, score: this.computeScore(u, currentUser) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => item.user);
+  }
+
+  async getSuggestedUsers(userId: string, getSuggestedUsersRequestDto: GetSuggestedUsersRequestDto): Promise<GetUsersResponseDto> {
+    try {
+      // Get current user's location
+      const currentUser = await this.findById(userId);
+      if (!currentUser) {
+        throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+
+      if (!currentUser.latitude || !currentUser.longitude) {
+        throw new CustomHttpException('LOCATION_REQUIRED', 'User location is required for suggestions', 'ERROR_LOCATION_REQUIRED', HttpStatus.BAD_REQUEST);
+      }
+
+      const likedUsers = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+      const likedUserIds = new Set(likedUsers.map(like => like.to_user_id));
+      const blockedUsers = await this.blocksRepository.findAllUsersBlockedByUser(userId);
+      const blockedUserIds = new Set(blockedUsers);
+
+      const filters = {
+        minAge: getSuggestedUsersRequestDto.minAge,
+        maxAge: getSuggestedUsersRequestDto.maxAge,
+        minFame: getSuggestedUsersRequestDto.minFame,
+        maxFame: getSuggestedUsersRequestDto.maxFame,
+        cities: getSuggestedUsersRequestDto.cities,
+        countries: getSuggestedUsersRequestDto.countries,
+        tags: getSuggestedUsersRequestDto.tags,
+        firstName: getSuggestedUsersRequestDto.firstName,
+      };
+      console.log("filters: ", filters);
+
+      // We can do that locally because we have a small number of users (500) so it's fine.
+      const users = await this.usersRepository.getAllUsers();
+      const topMatches = this.getTopMatches(users, currentUser, SUGGESTED_USERS_LIMIT * 2); // Get more to account for filtering
+
+      console.log(topMatches);
+
+      const filteredTopMatches = topMatches.filter(u => {
+        // Exclude already liked users
+        if (likedUserIds.has(u.id)) {
+          return false;
+        }
+
+        // Exclude blocked users (both ways)
+        if (blockedUserIds.has(u.id)) {
+          return false;
+        }
+
+        // Filter by sexual orientation compatibility
+        if (!this.isSexualOrientationCompatible(
+          currentUser.gender,
+          currentUser.sexualOrientation,
+          u.gender,
+          u.sexual_orientation
+        )) {
+          return false;
+        }
+
+        if (filters.cities && filters.cities.length > 0) {
+          if (!u.city_name || !filters.cities.includes(u.city_name)) {
+            return false;
+          }
+        }
+
+        if (filters.countries && filters.countries.length > 0) {
+          if (!u.country_name || !filters.countries.includes(u.country_name)) {
+            return false;
+          }
+        }
+
+        if (filters.tags && filters.tags.length > 0) {
+          if (!u.interests || !u.interests.some(interest => filters.tags!.includes(interest.name))) {
+            return false;
+          }
+        }
+
+        if (filters.minFame !== undefined && u.fame_rating < filters.minFame) {
+          return false;
+        }
+        if (filters.maxFame !== undefined && u.fame_rating > filters.maxFame) {
+          return false;
+        }
+
+        if (filters.minAge !== undefined || filters.maxAge !== undefined) {
+          const age = this.calculateAge(u.date_of_birth);
+          if (age === null) {
+            return false;
+          }
+          if (filters.minAge !== undefined && age < filters.minAge) {
+            return false;
+          }
+          if (filters.maxAge !== undefined && age > filters.maxAge) {
+            return false;
+          }
+        }
+
+        if (filters.firstName && filters.firstName.trim().length > 0) {
+          if (!u.first_name || !u.first_name.toLowerCase().includes(filters.firstName.toLowerCase().trim())) {
+            return false;
+          }
+        }
+
+        return true;
+      }).slice(0, SUGGESTED_USERS_LIMIT); // Limit to SUGGESTED_USERS_LIMIT after all filtering
+
+      console.log("filteredTopMatches: ", filteredTopMatches);
+      const userListItems = filteredTopMatches.map(user => this.mapUserToUserListItemDto(user, false));
+      return {
+        users: userListItems,
+        nextCursor: null,
+        hasMore: filteredTopMatches.length > SUGGESTED_USERS_LIMIT,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
   async resolveCityNameAndCountryNameByLatitudeAndLongitude(latitude: number, longitude: number): Promise<{ cityName: string, countryName: string }> {
     try {
@@ -565,15 +767,25 @@ export class UserService {
     const hasUserLikedUser = await this.hasUserLikedUser(toUserId, fromUserId);
     // Match found => Create chat and send notification to both users
     if (hasUserLikedUser) {
-      await this.chatRepository.createChat(fromUserId, toUserId);
-      await this.notificationService.createNotification({ userId: fromUserId, type: NotificationType.MATCH, sourceUserId: toUserId });
-      await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.MATCH, sourceUserId: fromUserId });
+      const existingChat = await this.chatRepository.findChatByUserIds(fromUserId, toUserId);
+      if (!existingChat) {
+        await this.chatRepository.createChat(fromUserId, toUserId);
+        await this.notificationService.createNotification({ userId: fromUserId, type: NotificationType.MATCH, sourceUserId: toUserId });
+        await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.MATCH, sourceUserId: fromUserId });
+      }
     } else { // Like notification
       await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.LIKE, sourceUserId: fromUserId });
     }
   }
 
   async unLikeUser(fromUserId: string, toUserId: string): Promise<void> {
+    if (fromUserId === toUserId) {
+      throw new CustomHttpException('SELF_UNLIKE_NOT_ALLOWED', 'You cannot unlike yourself.', 'ERROR_SELF_UNLIKE_NOT_ALLOWED', HttpStatus.BAD_REQUEST);
+    }
+    const like = await this.likesRepository.findByFromUserIdAndToUserId(fromUserId, toUserId);
+    if (!like) {
+      throw new CustomHttpException('NOT_LIKED_USER', 'You have not liked this user.', 'ERROR_NOT_LIKED_USER', HttpStatus.BAD_REQUEST);
+    }
     await this.likesRepository.unLikeUser(fromUserId, toUserId);
     await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.UNLIKE, sourceUserId: fromUserId });
   }

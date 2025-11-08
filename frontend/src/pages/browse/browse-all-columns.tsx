@@ -7,7 +7,7 @@ import { Heart } from "lucide-react";
 import type { UserListItem } from "@/types/browse";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 
-export function createColumns(
+export function createBrowseAllColumns(
   onLike: (userId: string) => void,
   onUnlike: (userId: string) => void
 ): ColumnDef<UserListItem>[] {

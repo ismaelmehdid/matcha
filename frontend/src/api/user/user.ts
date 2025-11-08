@@ -29,6 +29,41 @@ const GetOwnProfileResponseSchema = z.object({ user: UserSchema });
 const UpdateProfileResponseSchema = z.object({ user: UserSchema });
 const CompleteProfileResponseSchema = z.object({ user: UserSchema });
 
+function buildSortAndFilterURLSearchParams(params?: {
+  minAge?: number;
+  maxAge?: number;
+  minFame?: number;
+  maxFame?: number;
+  cities?: string[];
+  countries?: string[];
+  tags?: string[];
+  firstName?: string;
+  sort?: {
+    sortBy: 'age' | 'fameRating' | 'interests';
+    sortOrder: 'asc' | 'desc';
+  };
+}): URLSearchParams {
+  const queryParams = new URLSearchParams();
+  if (params?.minAge !== undefined) queryParams.append('minAge', params.minAge.toString());
+  if (params?.maxAge !== undefined) queryParams.append('maxAge', params.maxAge.toString());
+  if (params?.minFame !== undefined) queryParams.append('minFame', params.minFame.toString());
+  if (params?.maxFame !== undefined) queryParams.append('maxFame', params.maxFame.toString());
+  if (params?.cities && params.cities.length > 0) {
+    queryParams.append('cities', params.cities.join(','));
+  }
+  if (params?.countries && params.countries.length > 0) {
+    queryParams.append('countries', params.countries.join(','));
+  }
+  if (params?.tags && params.tags.length > 0) {
+    queryParams.append('tags', params.tags.join(','));
+  }
+  if (params?.firstName) queryParams.append('firstName', params.firstName);
+  if (params?.sort) {
+    queryParams.append('sort', JSON.stringify(params.sort));
+  }
+  return queryParams;
+}
+
 export const userApi = {
   getLocationList: async (): Promise<LocationEntry[]> => {
     const response = await parseApiResponse(apiClient.get('/users/location-list'), createApiResponseSchema(LocationListSchema));
@@ -85,25 +120,8 @@ export const userApi = {
       sortOrder: 'asc' | 'desc';
     };
   }): Promise<GetUsersResponse> => {
-    const queryParams = new URLSearchParams();
+    const queryParams = buildSortAndFilterURLSearchParams(params);
     if (params?.cursor) queryParams.append('cursor', params.cursor);
-    if (params?.minAge !== undefined) queryParams.append('minAge', params.minAge.toString());
-    if (params?.maxAge !== undefined) queryParams.append('maxAge', params.maxAge.toString());
-    if (params?.minFame !== undefined) queryParams.append('minFame', params.minFame.toString());
-    if (params?.maxFame !== undefined) queryParams.append('maxFame', params.maxFame.toString());
-    if (params?.cities && params.cities.length > 0) {
-      queryParams.append('cities', params.cities.join(','));
-    }
-    if (params?.countries && params.countries.length > 0) {
-      queryParams.append('countries', params.countries.join(','));
-    }
-    if (params?.tags && params.tags.length > 0) {
-      queryParams.append('tags', params.tags.join(','));
-    }
-    if (params?.firstName) queryParams.append('firstName', params.firstName);
-    if (params?.sort) {
-      queryParams.append('sort', JSON.stringify(params.sort));
-    }
 
     const url = `/users/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await parseApiResponse(apiClient.get(url), createApiResponseSchema(GetUsersResponseSchema));
@@ -112,5 +130,47 @@ export const userApi = {
     }
 
     return response.data;
+  },
+
+  getSuggestedUsers: async (params?: {
+    minAge?: number;
+    maxAge?: number;
+    minFame?: number;
+    maxFame?: number;
+    cities?: string[];
+    countries?: string[];
+    tags?: string[];
+    firstName?: string;
+    sort?: {
+      sortBy: 'age' | 'fameRating' | 'interests';
+      sortOrder: 'asc' | 'desc';
+    };
+  }): Promise<GetUsersResponse> => {
+    const queryParams = buildSortAndFilterURLSearchParams(params);
+
+    const url = `/users/suggested${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await parseApiResponse(apiClient.get(url), createApiResponseSchema(GetUsersResponseSchema));
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+    return response.data;
+  },
+
+  likeUser: async (userId: string): Promise<void> => {
+    const response = await parseApiResponse(
+      apiClient.post('/users/like', { userId }),
+      createApiResponseSchema(z.void()))
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+  },
+
+  unlikeUser: async (userId: string): Promise<void> => {
+    const response = await parseApiResponse(
+      apiClient.post('/users/unlike', { userId }),
+      createApiResponseSchema(z.void()))
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
   },
 };

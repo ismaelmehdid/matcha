@@ -16,6 +16,7 @@ import { CustomHttpException } from 'src/common/exceptions/custom-http.exception
 import { GetLocationListResponseDto } from './dto/get-location-list/get-location-list.dto';
 import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
 import { GetUsersResponseDto } from './dto/get-users/get-users-response.dto';
+import { GetSuggestedUsersRequestDto } from './dto/get-suggested-users/get-suggested-users-request.dto';
 
 @Controller('users')
 export class UserController {
@@ -63,6 +64,13 @@ export class UserController {
     return { success: true, messageKey: 'SUCCESS_LIKE_USER' };
   }
 
+  @Post('unlike')
+  @UseGuards(AuthGuard)
+  async unlikeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
+    await this.userService.unLikeUser(userId, likeUserRequestDto.userId);
+    return { success: true, messageKey: 'SUCCESS_UNLIKE_USER' };
+  }
+
   @Get('location-list')
   @UseGuards(AuthGuard)
   async getLocationList(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: GetLocationListResponseDto, messageKey: string }> {
@@ -78,6 +86,16 @@ export class UserController {
   ): Promise<{ success: boolean, data: GetUsersResponseDto, messageKey: string }> {
     const result: GetUsersResponseDto = await this.userService.getUsers(userId, getUsersRequestDto);
     return { success: true, data: result, messageKey: 'SUCCESS_GET_USERS' };
+  }
+
+  @Get('suggested')
+  @UseGuards(AuthGuard)
+  async getSuggestedUsers(
+    @CurrentUser('sub') userId: string,
+    @Query() getSuggestedUsersRequestDto: GetSuggestedUsersRequestDto,
+  ): Promise<{ success: boolean, data: GetUsersResponseDto, messageKey: string }> {
+    const result: GetUsersResponseDto = await this.userService.getSuggestedUsers(userId, getSuggestedUsersRequestDto);
+    return { success: true, data: result, messageKey: 'SUCCESS_GET_SUGGESTED_USERS' };
   }
 
   @Get('resolve-location-by-latitude-and-longitude')
