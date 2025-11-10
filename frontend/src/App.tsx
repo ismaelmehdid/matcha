@@ -16,6 +16,7 @@ import { VerifyEmail } from "./pages/auth/verify-email";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
 import { Chat } from "./pages/chat";
+import { Browse } from "./pages/browse/browse";
 
 function EmailVerificationGuard({ children }: { children: ReactNode }) {
   const { user, isLoading, isSuccess, isError } = useUser();
@@ -173,6 +174,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/browse"
+              element={
+                <ProtectedRoute>
+                  <Browse />
                 </ProtectedRoute>
               }
             />

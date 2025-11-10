@@ -4,6 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { CreateUserRequestDto } from '../dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { Gender, SexualOrientation } from '../enums/user.enums';
+import { Sort, SortOrder } from '../dto/get-users/get-users-request.dto';
 
 export interface UserPhoto {
   id: string;
@@ -31,6 +32,8 @@ export interface User {
   fame_rating: number;
   latitude: number | null;
   longitude: number | null;
+  city_name: string | null;
+  country_name: string | null;
   last_time_active: Date | null;
   password_hash: string;
   created_at: Date;
@@ -56,6 +59,8 @@ const USER_BASE_QUERY = `
     u.fame_rating,
     u.latitude,
     u.longitude,
+    u.city_name,
+    u.country_name,
     u.last_time_active,
     u.created_at,
     u.updated_at,
@@ -83,6 +88,181 @@ const USER_BASE_QUERY = `
 @Injectable()
 export class UsersRepository {
   constructor(private readonly db: DatabaseService) { }
+
+  async getCommonInterestsCount(currentUserId: string, otherUserId: string): Promise<number> {
+    try {
+      const query = `
+      SELECT COUNT(DISTINCT ui1.interest_id) as count
+      FROM user_interests ui1
+      INNER JOIN user_interests ui2 ON ui1.interest_id = ui2.interest_id
+      WHERE ui1.user_id = $1 AND ui2.user_id = $2
+    `;
+      const result = await this.db.query<{ count: number }>(query, [currentUserId, otherUserId]);
+      return result.rows[0]?.count || 0;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Builds filter conditions for user queries (age, fame, location, firstName, tags)
+  private buildFilterConditions(
+    filters: {
+      minAge?: number;
+      maxAge?: number;
+      minFame?: number;
+      maxFame?: number;
+      cities?: string[];
+      countries?: string[];
+      tags?: string[];
+      firstName?: string;
+    },
+    conditions: string[],
+    params: any[],
+    paramIndex: number,
+  ): { conditions: string[]; params: any[]; paramIndex: number } {
+    // Age range filter
+    if (filters.minAge !== undefined) {
+      const maxBirthDate = new Date();
+      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.minAge);
+      conditions.push(`u.date_of_birth <= $${paramIndex}`);
+      params.push(maxBirthDate.toISOString());
+      paramIndex++;
+    }
+    if (filters.maxAge !== undefined) {
+      const minBirthDate = new Date();
+      minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.maxAge);
+      conditions.push(`u.date_of_birth >= $${paramIndex}`);
+      params.push(minBirthDate.toISOString());
+      paramIndex++;
+    }
+
+    // Fame rating range filter
+    if (filters.minFame !== undefined) {
+      conditions.push(`u.fame_rating >= $${paramIndex}`);
+      params.push(filters.minFame);
+      paramIndex++;
+    }
+    if (filters.maxFame !== undefined) {
+      conditions.push(`u.fame_rating <= $${paramIndex}`);
+      params.push(filters.maxFame);
+      paramIndex++;
+    }
+
+    // Location filter
+    if (filters.cities && filters.countries && filters.cities.length > 0 && filters.countries.length > 0) {
+      if (filters.cities.length === filters.countries.length) {
+        const locationConditions: string[] = [];
+        filters.cities.forEach((city, index) => {
+          const country = filters.countries![index];
+          if (city && country) {
+            locationConditions.push(`(u.city_name = $${paramIndex} AND u.country_name = $${paramIndex + 1})`);
+            params.push(city);
+            params.push(country);
+            paramIndex += 2;
+          }
+        });
+        if (locationConditions.length > 0) {
+          conditions.push(`(${locationConditions.join(' OR ')})`);
+        }
+      } else {
+        if (filters.cities.length > 0) {
+          conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.cities);
+          paramIndex++;
+        }
+        if (filters.countries.length > 0) {
+          conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+          params.push(filters.countries);
+          paramIndex++;
+        }
+      }
+    } else {
+      if (filters.cities && filters.cities.length > 0) {
+        conditions.push(`u.city_name = ANY($${paramIndex}::text[])`);
+        params.push(filters.cities);
+        paramIndex++;
+      }
+      if (filters.countries && filters.countries.length > 0) {
+        conditions.push(`u.country_name = ANY($${paramIndex}::text[])`);
+        params.push(filters.countries);
+        paramIndex++;
+      }
+    }
+
+    // First name filter
+    if (filters.firstName) {
+      conditions.push(`u.first_name ILIKE $${paramIndex}`);
+      params.push(`%${filters.firstName}%`);
+      paramIndex++;
+    }
+
+    // Tags filter
+    if (filters.tags && filters.tags.length > 0) {
+      conditions.push(`
+        (
+          SELECT COUNT(DISTINCT i.name)
+          FROM user_interests ui
+          JOIN interests i ON ui.interest_id = i.id
+          WHERE ui.user_id = u.id
+          AND i.name = ANY($${paramIndex}::text[])
+        ) = $${paramIndex + 1}
+      `);
+      params.push(filters.tags);
+      params.push(filters.tags.length);
+      paramIndex += 2;
+    }
+
+    return { conditions, params, paramIndex };
+  }
+
+  // Builds ORDER BY clause for user queries
+  private buildOrderByClause(
+    sort: Sort | undefined,
+    currentUserId: string,
+    params: any[],
+    paramIndex: number,
+    includeTiebreakers: boolean = true,
+  ): { orderByClause: string; params: any[]; paramIndex: number } {
+    let orderByClause = '';
+
+    if (sort) {
+      switch (sort.sortBy) {
+        case 'age':
+          const ageSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
+          orderByClause = `ORDER BY EXTRACT(YEAR FROM AGE(u.date_of_birth)) ${ageSortOrder}`;
+          break;
+        case 'fameRating':
+          const fameSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
+          orderByClause = `ORDER BY u.fame_rating ${fameSortOrder}`;
+          break;
+        case 'interests':
+          const interestsSortOrder = sort.sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY (
+            SELECT COUNT(DISTINCT ui2.interest_id)
+            FROM user_interests ui2
+            WHERE ui2.user_id = u.id
+            AND ui2.interest_id IN (
+              SELECT interest_id
+              FROM user_interests
+              WHERE user_id = $${paramIndex}
+            )
+          ) ${interestsSortOrder}`;
+          params.push(currentUserId);
+          paramIndex++;
+          break;
+      }
+      if (includeTiebreakers) {
+        orderByClause += `, u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
+      }
+    } else {
+      if (includeTiebreakers) {
+        orderByClause = `ORDER BY u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
+      }
+    }
+
+    return { orderByClause, params, paramIndex };
+  }
 
   async findById(id: string): Promise<User | null> {
     try {
@@ -163,57 +343,45 @@ export class UsersRepository {
     }
   }
 
-  async completeProfile(
+  async updateLocation(
     userId: string,
-    dto: {
-      dateOfBirth: string;
-      gender: Gender;
-      sexualOrientation: SexualOrientation;
-      biography: string;
+    location: {
+      latitude: number;
+      longitude: number;
+      cityName: string;
+      countryName: string;
     },
     client?: PoolClient,
   ): Promise<User> {
     const query = `
       WITH updated_user AS (
         UPDATE users
-        SET date_of_birth = $1, 
-            gender = $2,
-            sexual_orientation = $3,
-            biography = $4,
-            profile_completed = TRUE,
+        SET latitude = $1,
+            longitude = $2,
+            city_name = $3,
+            country_name = $4,
             updated_at = NOW()
         WHERE id = $5
-        RETURNING *
+        RETURNING id
       )
-      SELECT u.*,
-        COALESCE(
-          (SELECT jsonb_agg(jsonb_build_object('id', up.id, 'url', up.url, 'is_profile_pic', up.is_profile_pic))
-            FROM user_photos up
-            WHERE up.user_id = u.id),
-          '[]'::jsonb
-        ) AS photos,
-        COALESCE(
-          (SELECT jsonb_agg(jsonb_build_object('id', i.id, 'name', i.name))
-            FROM user_interests ui
-            JOIN interests i ON ui.interest_id = i.id
-            WHERE ui.user_id = u.id),
-          '[]'::jsonb
-        ) AS interests
-      FROM updated_user u;
+      ${USER_BASE_QUERY}
+      WHERE u.id = (SELECT id FROM updated_user)
+      GROUP BY u.id
     `;
 
     const values = [
-      dto.dateOfBirth,
-      dto.gender,
-      dto.sexualOrientation,
-      dto.biography,
-      userId
+      location.latitude,
+      location.longitude,
+      location.cityName,
+      location.countryName,
+      userId,
     ];
 
     try {
       const result = client
         ? await client.query<User>(query, values)
         : await this.db.query<User>(query, values);
+
       if (!result?.rows?.[0]) {
         throw new CustomHttpException(
           'USER_NOT_FOUND',
@@ -225,7 +393,58 @@ export class UsersRepository {
 
       return result.rows[0];
     } catch (error) {
-      // If it's already CustomHttpException, rethrow it
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async completeProfile(
+    userId: string,
+    dto: {
+      dateOfBirth: string;
+      gender: Gender;
+      sexualOrientation: SexualOrientation;
+      biography: string;
+    },
+  ): Promise<User> {
+    try {
+      const query = `
+        WITH updated_user AS (
+          UPDATE users
+          SET date_of_birth = $1,
+              gender = $2,
+              sexual_orientation = $3,
+              biography = $4,
+              profile_completed = TRUE,
+              updated_at = NOW()
+          WHERE id = $5
+          RETURNING id
+        )
+        ${USER_BASE_QUERY}
+        WHERE u.id = (SELECT id FROM updated_user)
+        GROUP BY u.id
+      `;
+
+      const values = [
+        dto.dateOfBirth,
+        dto.gender,
+        dto.sexualOrientation,
+        dto.biography,
+        userId,
+      ];
+
+      const result = await this.db.query<User>(query, values);
+
+      if (result.rows.length === 0) {
+        throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+
+      return result.rows[0];
+    } catch (error) {
       if (error instanceof CustomHttpException) {
         throw error;
       }
@@ -280,23 +499,11 @@ export class UsersRepository {
         UPDATE users
         SET ${fields.join(', ')}
         WHERE id = $${paramIndex}
-        RETURNING *
+        RETURNING id
       )
-      SELECT u.*,
-        COALESCE(
-          (SELECT jsonb_agg(jsonb_build_object('id', up.id, 'url', up.url, 'is_profile_pic', up.is_profile_pic))
-            FROM user_photos up
-            WHERE up.user_id = u.id),
-          '[]'::jsonb
-        ) AS photos,
-        COALESCE(
-          (SELECT jsonb_agg(jsonb_build_object('id', i.id, 'name', i.name))
-            FROM user_interests ui
-            JOIN interests i ON ui.interest_id = i.id
-            WHERE ui.user_id = u.id),
-          '[]'::jsonb
-        ) AS interests
-      FROM updated_user u;
+      ${USER_BASE_QUERY}
+      WHERE u.id = (SELECT id FROM updated_user)
+      GROUP BY u.id
     `;
 
     try {
@@ -353,6 +560,159 @@ export class UsersRepository {
         lastName: row.last_name,
         profilePicture: row.profile_picture,
       }));
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getCityNameByUserId(userId: string): Promise<string> {
+    try {
+      const result = await this.db.query<{ city_name: string }>(`SELECT city_name FROM users WHERE id = $1`, [userId]);
+      return result.rows[0]?.city_name || null;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getCountryNameByUserId(userId: string): Promise<string> {
+    try {
+      const result = await this.db.query<{ country_name: string }>(`SELECT country_name FROM users WHERE id = $1`, [userId]);
+      return result.rows[0]?.country_name || null;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const result = await this.db.query<User>(`${USER_BASE_QUERY} GROUP BY u.id`);
+      return result.rows;
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getUsers(
+    currentUserId: string,
+    filters: {
+      cursor?: string;
+      minAge?: number;
+      maxAge?: number;
+      minFame?: number;
+      maxFame?: number;
+      cities?: string[];
+      countries?: string[];
+      tags?: string[];
+      firstName?: string;
+    },
+    limit: number,
+    sort?: Sort,
+  ): Promise<User[]> {
+    try {
+      let conditions: string[] = [];
+      let params: any[] = [];
+      let paramIndex = 1;
+
+      conditions.push(`u.id != $${paramIndex}`);
+      params.push(currentUserId);
+      paramIndex++;
+
+      conditions.push(`u.profile_completed = TRUE`);
+
+      // Build filter conditions using shared method
+      const filterResult = this.buildFilterConditions(filters, conditions, params, paramIndex);
+      conditions = filterResult.conditions;
+      params = filterResult.params;
+      paramIndex = filterResult.paramIndex;
+
+      // Pagination cursor handling
+      // When sorting is applied, cursor format: sortValue,last_time_active,created_at,id
+      // When no sorting, cursor format: last_time_active,created_at,id
+      if (filters.cursor) {
+        const cursorParts = filters.cursor.split(',');
+        if (sort) {
+          // Custom sort: cursor contains sort value + tiebreakers
+          const cursorSortValue = cursorParts[0];
+          const cursorLastTimeActive = cursorParts[1] === 'null' ? null : cursorParts[1];
+          const cursorCreatedAt = cursorParts[2];
+          const cursorId = cursorParts[3];
+
+          switch (sort.sortBy) {
+            case 'age':
+              const ageValue = parseFloat(cursorSortValue);
+              const ageOperator = sort.sortOrder === SortOrder.ASC ? '>' : '<';
+              conditions.push(`(EXTRACT(YEAR FROM AGE(u.date_of_birth)) ${ageOperator} $${paramIndex} OR (EXTRACT(YEAR FROM AGE(u.date_of_birth)) = $${paramIndex} AND (u.last_time_active IS NULL OR u.last_time_active < $${paramIndex + 1}::timestamp OR (u.last_time_active = $${paramIndex + 1}::timestamp AND u.created_at < $${paramIndex + 2}::timestamp) OR (u.last_time_active = $${paramIndex + 1}::timestamp AND u.created_at = $${paramIndex + 2}::timestamp AND u.id < $${paramIndex + 3}::uuid))))`);
+              params.push(ageValue);
+              params.push(cursorLastTimeActive || new Date().toISOString());
+              params.push(cursorCreatedAt);
+              params.push(cursorId);
+              paramIndex += 4;
+              break;
+            case 'fameRating':
+              const fameValue = parseFloat(cursorSortValue);
+              const fameOperator = sort.sortOrder === SortOrder.ASC ? '>' : '<';
+              conditions.push(`(u.fame_rating ${fameOperator} $${paramIndex} OR (u.fame_rating = $${paramIndex} AND (u.last_time_active IS NULL OR u.last_time_active < $${paramIndex + 1}::timestamp OR (u.last_time_active = $${paramIndex + 1}::timestamp AND u.created_at < $${paramIndex + 2}::timestamp) OR (u.last_time_active = $${paramIndex + 1}::timestamp AND u.created_at = $${paramIndex + 2}::timestamp AND u.id < $${paramIndex + 3}::uuid))))`);
+              params.push(fameValue);
+              params.push(cursorLastTimeActive || new Date().toISOString());
+              params.push(cursorCreatedAt);
+              params.push(cursorId);
+              paramIndex += 4;
+              break;
+            case 'interests':
+              const interestsValue = parseFloat(cursorSortValue);
+              const interestsOperator = sort.sortOrder === SortOrder.DESC ? '<' : '>';
+              conditions.push(`((SELECT COUNT(DISTINCT ui2.interest_id) FROM user_interests ui2 WHERE ui2.user_id = u.id AND ui2.interest_id IN (SELECT interest_id FROM user_interests WHERE user_id = $${paramIndex})) ${interestsOperator} $${paramIndex + 1} OR ((SELECT COUNT(DISTINCT ui2.interest_id) FROM user_interests ui2 WHERE ui2.user_id = u.id AND ui2.interest_id IN (SELECT interest_id FROM user_interests WHERE user_id = $${paramIndex})) = $${paramIndex + 1} AND (u.last_time_active IS NULL OR u.last_time_active < $${paramIndex + 2}::timestamp OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at < $${paramIndex + 3}::timestamp) OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at = $${paramIndex + 3}::timestamp AND u.id < $${paramIndex + 4}::uuid))))`);
+              params.push(currentUserId);
+              params.push(interestsValue);
+              params.push(cursorLastTimeActive || new Date().toISOString());
+              params.push(cursorCreatedAt);
+              params.push(cursorId);
+              paramIndex += 5;
+              break;
+          }
+        } else {
+          // Default sort: cursor contains last_time_active,created_at,id
+          const [cursorLastTimeActive, cursorCreatedAt, cursorId] = cursorParts;
+          const cursorLastTimeActiveValue = cursorLastTimeActive === 'null' ? null : cursorLastTimeActive;
+
+          if (cursorLastTimeActiveValue === null) {
+            conditions.push(`u.last_time_active IS NULL AND (u.created_at < $${paramIndex}::timestamp OR (u.created_at = $${paramIndex}::timestamp AND u.id < $${paramIndex + 1}::uuid))`);
+            params.push(cursorCreatedAt);
+            params.push(cursorId);
+            paramIndex += 2;
+          } else {
+            conditions.push(`(u.last_time_active IS NULL OR u.last_time_active < $${paramIndex}::timestamp OR (u.last_time_active = $${paramIndex}::timestamp AND u.created_at < $${paramIndex + 1}::timestamp) OR (u.last_time_active = $${paramIndex}::timestamp AND u.created_at = $${paramIndex + 1}::timestamp AND u.id < $${paramIndex + 2}::uuid))`);
+            params.push(cursorLastTimeActiveValue);
+            params.push(cursorCreatedAt);
+            params.push(cursorId);
+            paramIndex += 3;
+          }
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Build ORDER BY clause using shared method
+      const orderByResult = this.buildOrderByClause(sort, currentUserId, params, paramIndex, true);
+      const orderByClause = orderByResult.orderByClause;
+      params = orderByResult.params;
+      paramIndex = orderByResult.paramIndex;
+
+      const query = `
+        ${USER_BASE_QUERY}
+        ${whereClause}
+        GROUP BY u.id
+        ${orderByClause}
+        LIMIT $${paramIndex}
+      `;
+      params.push(limit);
+
+      const result = await this.db.query<User>(query, params);
+      return result.rows;
     } catch (error) {
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);

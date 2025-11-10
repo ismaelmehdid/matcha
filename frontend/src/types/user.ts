@@ -4,7 +4,7 @@ export const InterestSchema = z.object({
   id: z.string(),
   name: z.string(),
 });
-export type Interest = z.infer<typeof InterestSchema>;;
+export type Interest = z.infer<typeof InterestSchema>;
 
 export const GenderSchema = z.enum(['male', 'female']);
 export type Gender = z.infer<typeof GenderSchema>;
@@ -29,8 +29,10 @@ export const UserSchema = z.object({
   biography: z.string().nullable(),
   profileCompleted: z.boolean(),
   fameRating: z.number(),
-  latitude: z.string().nullable(),
-  longitude: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  cityName: z.string().nullable(),
+  countryName: z.string().nullable(),
   email: z.string(),
   isEmailVerified: z.boolean(),
   createdAt: z.string().transform((str) => new Date(str)),
@@ -47,11 +49,13 @@ export const ProfileSchema = z.object({
   gender: GenderSchema.nullable(),
   biography: z.string().nullable(),
   fameRating: z.number(),
-  latitude: z.string().nullable(),
-  longitude: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
   lastTimeActive: z.string().nullable().transform((str) => str ? new Date(str) : null),
   createdAt: z.string().transform((str) => new Date(str)),
   photos: z.array(PhotoSchema),
+  cityName: z.string().nullable(),
+  countryName: z.string().nullable(),
   interests: z.array(InterestSchema),
 });
 export type Profile = z.infer<typeof ProfileSchema>;

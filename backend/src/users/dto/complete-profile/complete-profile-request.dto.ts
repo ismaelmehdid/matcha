@@ -1,4 +1,4 @@
-import { IsString, MinLength, MaxLength, IsEnum, IsDateString, IsNotEmpty, IsArray, IsUUID, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsEnum, IsDateString, IsNotEmpty, IsArray, IsUUID, ArrayMinSize, ArrayMaxSize, IsNumber, Min, Max } from 'class-validator';
 import { Gender, SexualOrientation } from '../../enums/user.enums';
 import { IsMinAge, IsArrayUnique } from 'src/common/validators';
 
@@ -28,4 +28,16 @@ export class CompleteProfileRequestDto {
   @IsUUID('4', { each: true, message: 'Each interest ID must be a valid UUID' })
   @IsArrayUnique()
   interestIds: string[];
+
+  @IsNotEmpty({ message: 'Latitude is required' })
+  @IsNumber({}, { message: 'Latitude must be a number' })
+  @Min(-90, { message: 'Latitude must be between -90 and 90' })
+  @Max(90, { message: 'Latitude must be between -90 and 90' })
+  latitude: number;
+
+  @IsNotEmpty({ message: 'Longitude is required' })
+  @IsNumber({}, { message: 'Longitude must be a number' })
+  @Min(-180, { message: 'Longitude must be between -180 and 180' })
+  @Max(180, { message: 'Longitude must be between -180 and 180' })
+  longitude: number;
 }

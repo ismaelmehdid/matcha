@@ -6,13 +6,13 @@ import sgMail from '@sendgrid/mail';
 import { PrivateUserDto } from 'src/users/dto';
 import { SignUpResponseDto } from './dto/sign-up/sign-up-response.dto';
 import { SignInResponseDto } from './dto/sign-in/sign-in-response.dto';
-import { AuthRepository } from './repositories/auth.repository';
+import { RedisRepository } from '../redis/repositories/redis.repository';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { RefreshTokenResponseDto } from './dto/refresh-token/refresh-token-response.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly userService: UserService, private readonly authRepository: AuthRepository) {
+  constructor(private readonly userService: UserService, private readonly redisRepository: RedisRepository) {
     const access = process.env.ACCESS_TOKEN_SECRET;
     const refresh = process.env.REFRESH_TOKEN_SECRET;
     if (!access || !refresh) {
@@ -36,22 +36,22 @@ export class AuthService {
   }
 
   private async revokeVerifyEmailToken(token: string) {
-    await this.authRepository.deleteEntry(`verify_email:${token}`);
+    await this.redisRepository.deleteEntry(`verify_email:${token}`);
   }
 
 
   private async revokePasswordResetToken(token: string) {
-    await this.authRepository.deleteEntry(`password_reset:${token}`);
+    await this.redisRepository.deleteEntry(`password_reset:${token}`);
   }
 
   private async generateRefreshToken(user: { id: string }): Promise<string> {
     const refreshToken = jwt.sign({ sub: user.id.toString() }, this.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-    await this.authRepository.setEntry(`refresh_token:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
+    await this.redisRepository.setEntry(`refresh_token:${user.id}`, refreshToken, 7 * 24 * 60 * 60);
     return refreshToken;
   }
 
   async revokeRefreshToken(userId: string) {
-    await this.authRepository.deleteEntry(`refresh_token:${userId}`);
+    await this.redisRepository.deleteEntry(`refresh_token:${userId}`);
   }
 
   async signUp(email: string, password: string, firstName: string, lastName: string, username: string): Promise<SignUpResponseDto> {
@@ -75,7 +75,7 @@ export class AuthService {
     if (!refreshToken) throw new CustomHttpException('NO_REFRESH_TOKEN_PROVIDED', 'No refresh token provided', 'ERROR_NO_REFRESH_TOKEN_PROVIDED', HttpStatus.BAD_REQUEST);
     try {
       const payload: any = jwt.verify(refreshToken, this.REFRESH_TOKEN_SECRET);
-      const storedToken = await this.authRepository.getEntry(`refresh_token:${payload.sub}`);
+      const storedToken = await this.redisRepository.getEntry(`refresh_token:${payload.sub}`);
       if (!storedToken || storedToken !== refreshToken) throw new CustomHttpException('INVALID_REFRESH_TOKEN', 'Invalid refresh token', 'ERROR_INVALID_REFRESH_TOKEN', HttpStatus.BAD_REQUEST);
       const user: PrivateUserDto | null = await this.userService.findById(payload.sub);
       if (!user) throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
@@ -92,7 +92,7 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
     if (!user) return; // Don't throw an error if the email is not found to prevent email enumeration
     const resetToken = crypto.randomBytes(32).toString('hex');
-    await this.authRepository.setEntry(`password_reset:${resetToken}`, user.id.toString(), 60 * 60);
+    await this.redisRepository.setEntry(`password_reset:${resetToken}`, user.id.toString(), 60 * 60);
     try {
       await this.sendgrid.send({
         to: user.email,
@@ -109,7 +109,7 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     if (!token || !newPassword) throw new CustomHttpException('TOKEN_AND_NEW_PASSWORD_REQUIRED', 'Token and new password are required', 'ERROR_TOKEN_AND_NEW_PASSWORD_REQUIRED', HttpStatus.BAD_REQUEST);
-    const userId = await this.authRepository.getEntry(`password_reset:${token}`);
+    const userId = await this.redisRepository.getEntry(`password_reset:${token}`);
     if (!userId) throw new CustomHttpException('INVALID_OR_EXPIRED_RESET_TOKEN', 'Invalid or expired reset token', 'ERROR_INVALID_OR_EXPIRED_RESET_TOKEN', HttpStatus.BAD_REQUEST);
     await this.userService.updatePassword(userId, newPassword);
     await this.revokePasswordResetToken(token); // Revoke password reset token
@@ -117,12 +117,12 @@ export class AuthService {
   }
 
   async verifyPasswordResetToken(token: string): Promise<boolean> {
-    const userId = await this.authRepository.getEntry(`password_reset:${token}`);
+    const userId = await this.redisRepository.getEntry(`password_reset:${token}`);
     return !!userId;
   }
 
   async verifyEmail(token: string): Promise<void> {
-    const userId = await this.authRepository.getEntry(`verify_email:${token}`); // Verify email verification token
+    const userId = await this.redisRepository.getEntry(`verify_email:${token}`); // Verify email verification token
     if (!userId) throw new CustomHttpException('INVALID_OR_EXPIRED_VERIFY_EMAIL_TOKEN', 'Invalid or expired verify email token', 'ERROR_INVALID_OR_EXPIRED_VERIFY_EMAIL_TOKEN', HttpStatus.BAD_REQUEST);
     await this.userService.updateEmailVerified(userId, true);
     await this.revokeVerifyEmailToken(token);
@@ -134,7 +134,7 @@ export class AuthService {
     if (!user) throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.BAD_REQUEST);
     if (user.isEmailVerified) throw new CustomHttpException('EMAIL_ALREADY_VERIFIED', 'Email already verified', 'ERROR_EMAIL_ALREADY_VERIFIED', HttpStatus.BAD_REQUEST);
     const verifyEmailToken = crypto.randomBytes(32).toString('hex');
-    await this.authRepository.setEntry(`verify_email:${verifyEmailToken}`, user.id.toString(), 60 * 60);
+    await this.redisRepository.setEntry(`verify_email:${verifyEmailToken}`, user.id.toString(), 60 * 60);
     try {
       await this.sendgrid.send({
         to: user.email,

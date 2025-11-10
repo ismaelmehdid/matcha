@@ -13,6 +13,7 @@ import type { Conversation } from "@/types/chat";
 import { useMessages } from "@/hooks/useMessages";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
+import { getInitials } from "@/lib/utils";
 
 function ConversationCardContent({
   conversation,
@@ -208,10 +209,6 @@ export function Chat() {
       queryClient.setQueryData(["activeChatId"], null);
     };
   }, [selectedConversation, queryClient]);
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  };
 
   return (
     <AppLayout>

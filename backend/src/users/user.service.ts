@@ -6,9 +6,11 @@ import { InterestRepository } from 'src/interests/repository/interest.repository
 import { DatabaseService } from 'src/database/database.service';
 import { LikesRepository } from './repositories/likes.repository';
 import { LikeSent, LikeReceived } from './repositories/likes.repository';
+import { BlocksRepository } from './repositories/blocks.repository';
 import { ChatRepository } from 'src/chat/repositories/chat.repository';
 import { NotificationService } from 'src/notifications/notification.service';
 import { NotificationType } from 'src/common/enums/notification-type';
+import { z } from 'zod';
 import {
   CreateUserRequestDto,
   UpdateProfileRequestDto,
@@ -17,8 +19,76 @@ import {
   CompleteProfileResponseDto,
   PublicUserDto,
   PrivateUserDto,
+  GetLocationListResponseDto,
+  LocationEntryDto,
 } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
+import { RedisRepository } from 'src/redis/repositories/redis.repository';
+import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
+import { GetUsersResponseDto, UserListItemDto } from './dto/get-users/get-users-response.dto';
+import { GetSuggestedUsersRequestDto } from './dto/get-suggested-users/get-suggested-users-request.dto';
+import { Gender, SexualOrientation } from './enums/user.enums';
+
+// Zod schemas for external API validation
+const IPAPIResponseSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('success'),
+    lon: z.number().nullable(),
+    lat: z.number().nullable(),
+  }),
+  z.object({
+    status: z.literal('fail'),
+    message: z.string(),
+  }),
+]);
+
+const NominatimResponseSchema = z.object({
+  address: z.object({
+    city: z.string().nullable().optional(),
+    town: z.string().nullable().optional(),
+    village: z.string().nullable().optional(),
+    municipality: z.string().nullable().optional(),
+    suburb: z.string().nullable().optional(),
+    county: z.string().nullable().optional(),
+    state_district: z.string().nullable().optional(),
+    country: z.string().nullable(),
+  }),
+});
+
+const NominatimSearchResponseSchema = z.array(
+  z.object({
+    lat: z.string(),
+    lon: z.string(),
+  })
+);
+
+const ResolveLocationRequestSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('latitudeAndLongitude'),
+    latitude: z.number(),
+    longitude: z.number(),
+  }),
+  z.object({
+    type: z.literal('cityNameAndCountryName'),
+    cityName: z.string(),
+    countryName: z.string(),
+  }),
+  z.object({
+    type: z.literal('ipAddress'),
+    ipAddress: z.string(),
+  }),
+]);
+type ResolveLocationRequest = z.infer<typeof ResolveLocationRequestSchema>;
+
+type Location = {
+  latitude: number;
+  longitude: number;
+  cityName: string;
+  countryName: string;
+}
+
+const MAX_PAGE_SIZE = 10;
+const SUGGESTED_USERS_LIMIT = 50;
 
 @Injectable()
 export class UserService {
@@ -27,8 +97,10 @@ export class UserService {
     private readonly interestRepository: InterestRepository,
     private readonly db: DatabaseService,
     private readonly likesRepository: LikesRepository,
+    private readonly blocksRepository: BlocksRepository,
     private readonly chatRepository: ChatRepository,
     private readonly notificationService: NotificationService,
+    private readonly redisRepository: RedisRepository,
   ) { }
 
   private mapUserToPrivateUserDto(user: User): PrivateUserDto {
@@ -41,8 +113,10 @@ export class UserService {
       biography: user.biography,
       profileCompleted: user.profile_completed,
       fameRating: user.fame_rating,
-      latitude: user.latitude,
-      longitude: user.longitude,
+      latitude: Number(user.latitude),
+      longitude: Number(user.longitude),
+      cityName: user.city_name,
+      countryName: user.country_name,
       lastTimeActive: user.last_time_active ? user.last_time_active.toISOString() : null,
       createdAt: user.created_at.toISOString(),
       email: user.email,
@@ -67,8 +141,10 @@ export class UserService {
       gender: user.gender,
       biography: user.biography,
       fameRating: user.fame_rating,
-      latitude: user.latitude,
-      longitude: user.longitude,
+      latitude: Number(user.latitude),
+      longitude: Number(user.longitude),
+      cityName: user.city_name,
+      countryName: user.country_name,
       lastTimeActive: user.last_time_active ? user.last_time_active.toISOString() : null,
       createdAt: user.created_at.toISOString(),
       interests: user.interests ? user.interests : [],
@@ -78,6 +154,431 @@ export class UserService {
         isProfilePic: photo.is_profile_pic
       })) : [],
     };
+  }
+
+  private calculateAge(dateOfBirth: Date | null): number | null {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  private mapUserToUserListItemDto(user: User, liked: boolean): UserListItemDto {
+    const age = this.calculateAge(user.date_of_birth);
+    const profilePicture = user.photos?.find(p => p.is_profile_pic)?.url || user.photos?.[0]?.url || '';
+
+    return {
+      id: user.id,
+      profilePicture,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      age: age || 0,
+      fameRating: user.fame_rating,
+      cityName: user.city_name || null,
+      countryName: user.country_name || null,
+      interests: user.interests?.map(i => ({ id: i.id, name: i.name })) || [],
+      liked,
+    };
+  }
+
+  async getUsers(userId: string, getUsersRequestDto: GetUsersRequestDto): Promise<GetUsersResponseDto> {
+    try {
+      const filters = {
+        cursor: getUsersRequestDto.cursor,
+        minAge: getUsersRequestDto.minAge,
+        maxAge: getUsersRequestDto.maxAge,
+        minFame: getUsersRequestDto.minFame,
+        maxFame: getUsersRequestDto.maxFame,
+        cities: getUsersRequestDto.cities,
+        countries: getUsersRequestDto.countries,
+        tags: getUsersRequestDto.tags,
+        firstName: getUsersRequestDto.firstName,
+      };
+
+      const users = await this.usersRepository.getUsers(userId, filters, MAX_PAGE_SIZE + 1, getUsersRequestDto.sort);
+
+      const likedUserIds = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+      const likedUserIdsSet = new Set(likedUserIds.map(like => like.to_user_id));
+
+      const hasMore = users.length > MAX_PAGE_SIZE;
+      const usersToReturn = hasMore ? users.slice(0, MAX_PAGE_SIZE) : users;
+
+      const userListItems = usersToReturn.map(user =>
+        this.mapUserToUserListItemDto(user, likedUserIdsSet.has(user.id))
+      );
+
+      // Store in the cursor the last user infos so we can use it in the next request.
+      let nextCursor: string | null = null;
+      if (hasMore && usersToReturn.length > 0) {
+        const lastUser = usersToReturn[usersToReturn.length - 1];
+        const lastTimeActive = lastUser.last_time_active
+          ? lastUser.last_time_active.toISOString()
+          : 'null';
+        const createdAt = lastUser.created_at.toISOString();
+
+        if (getUsersRequestDto.sort) {
+          let sortValue: string;
+          switch (getUsersRequestDto.sort.sortBy) {
+            case 'age':
+              if (!lastUser.date_of_birth) {
+                sortValue = '999';
+              } else {
+                const birthDate = new Date(lastUser.date_of_birth);
+                const today = new Date();
+                const age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                const dayDiff = today.getDate() - birthDate.getDate();
+                const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+                sortValue = actualAge.toString();
+              }
+              break;
+            case 'fameRating':
+              sortValue = lastUser.fame_rating.toString();
+              break;
+            case 'interests':
+              const commonInterestsCount = await this.usersRepository.getCommonInterestsCount(userId, lastUser.id);
+              sortValue = commonInterestsCount.toString();
+              break;
+          }
+          nextCursor = `${sortValue},${lastTimeActive},${createdAt},${lastUser.id}`;
+        } else {
+          nextCursor = `${lastTimeActive},${createdAt},${lastUser.id}`;
+        }
+      }
+
+      return {
+        users: userListItems,
+        nextCursor,
+        hasMore,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private sharedTagsCount(tags1: string[], tags2: string[]): number {
+    return tags1.filter(tag => tags2.includes(tag)).length;
+  }
+
+  private computeScore(user: User, currentUser: PrivateUserDto): number {
+    if (!user.latitude || !user.longitude || !currentUser.latitude || !currentUser.longitude || !user.interests || !currentUser.interests) {
+      return 0;
+    }
+    const distance = this.getDistance(user.latitude, user.longitude, currentUser.latitude, currentUser.longitude);
+    const sharedTagsCount = this.sharedTagsCount(user.interests.map(i => i.id), currentUser.interests.map(i => i.id));
+    const fameRating = user.fame_rating;
+
+    const distanceScore = 1 / (1 + distance / 100);
+    const tagsScore = Math.min(sharedTagsCount / 10, 1);
+    const fameScore = fameRating / 100;
+
+    return distanceScore * 0.6 + tagsScore * 0.25 + fameScore * 0.15;
+  }
+
+  private isSexualOrientationCompatible(
+    currentUserGender: Gender | null,
+    currentUserOrientation: SexualOrientation | null,
+    otherUserGender: Gender | null,
+    otherUserOrientation: SexualOrientation | null
+  ): boolean {
+    if (!currentUserGender || !currentUserOrientation || !otherUserGender || !otherUserOrientation) {
+      return true;
+    }
+
+    const currentUserCanSeeOther = this.canUserSeeGender(
+      currentUserOrientation,
+      currentUserGender,
+      otherUserGender
+    );
+
+    const otherUserCanSeeCurrent = this.canUserSeeGender(
+      otherUserOrientation,
+      otherUserGender,
+      currentUserGender
+    );
+
+    return currentUserCanSeeOther && otherUserCanSeeCurrent;
+  }
+
+  private canUserSeeGender(
+    userOrientation: SexualOrientation,
+    userGender: Gender,
+    targetGender: Gender
+  ): boolean {
+    if (userOrientation === SexualOrientation.BISEXUAL) {
+      return true;
+    }
+
+    if (userOrientation === SexualOrientation.STRAIGHT) {
+      return userGender !== targetGender;
+    }
+
+    if (userOrientation === SexualOrientation.GAY) {
+      return userGender === targetGender;
+    }
+
+    return true;
+  }
+
+  private getTopMatches(users: User[], currentUser: PrivateUserDto, limit = 50): User[] {
+    return users
+      .filter(u => u.id !== currentUser.id)
+      .map(u => ({ user: u, score: this.computeScore(u, currentUser) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => item.user);
+  }
+
+  async getSuggestedUsers(userId: string, getSuggestedUsersRequestDto: GetSuggestedUsersRequestDto): Promise<GetUsersResponseDto> {
+    try {
+      // Get current user's location
+      const currentUser = await this.findById(userId);
+      if (!currentUser) {
+        throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+
+      if (!currentUser.latitude || !currentUser.longitude) {
+        throw new CustomHttpException('LOCATION_REQUIRED', 'User location is required for suggestions', 'ERROR_LOCATION_REQUIRED', HttpStatus.BAD_REQUEST);
+      }
+
+      const likedUsers = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+      const likedUserIds = new Set(likedUsers.map(like => like.to_user_id));
+      const blockedUsers = await this.blocksRepository.findAllUsersBlockedByUser(userId);
+      const blockedUserIds = new Set(blockedUsers);
+
+      const filters = {
+        minAge: getSuggestedUsersRequestDto.minAge,
+        maxAge: getSuggestedUsersRequestDto.maxAge,
+        minFame: getSuggestedUsersRequestDto.minFame,
+        maxFame: getSuggestedUsersRequestDto.maxFame,
+        cities: getSuggestedUsersRequestDto.cities,
+        countries: getSuggestedUsersRequestDto.countries,
+        tags: getSuggestedUsersRequestDto.tags,
+        firstName: getSuggestedUsersRequestDto.firstName,
+      };
+      console.log("filters: ", filters);
+
+      // We can do that locally because we have a small number of users (500) so it's fine.
+      const users = await this.usersRepository.getAllUsers();
+      const topMatches = this.getTopMatches(users, currentUser, SUGGESTED_USERS_LIMIT * 2); // Get more to account for filtering
+
+      console.log(topMatches);
+
+      const filteredTopMatches = topMatches.filter(u => {
+        // Exclude already liked users
+        if (likedUserIds.has(u.id)) {
+          return false;
+        }
+
+        // Exclude blocked users (both ways)
+        if (blockedUserIds.has(u.id)) {
+          return false;
+        }
+
+        // Filter by sexual orientation compatibility
+        if (!this.isSexualOrientationCompatible(
+          currentUser.gender,
+          currentUser.sexualOrientation,
+          u.gender,
+          u.sexual_orientation
+        )) {
+          return false;
+        }
+
+        if (filters.cities && filters.cities.length > 0) {
+          if (!u.city_name || !filters.cities.includes(u.city_name)) {
+            return false;
+          }
+        }
+
+        if (filters.countries && filters.countries.length > 0) {
+          if (!u.country_name || !filters.countries.includes(u.country_name)) {
+            return false;
+          }
+        }
+
+        if (filters.tags && filters.tags.length > 0) {
+          if (!u.interests || !u.interests.some(interest => filters.tags!.includes(interest.name))) {
+            return false;
+          }
+        }
+
+        if (filters.minFame !== undefined && u.fame_rating < filters.minFame) {
+          return false;
+        }
+        if (filters.maxFame !== undefined && u.fame_rating > filters.maxFame) {
+          return false;
+        }
+
+        if (filters.minAge !== undefined || filters.maxAge !== undefined) {
+          const age = this.calculateAge(u.date_of_birth);
+          if (age === null) {
+            return false;
+          }
+          if (filters.minAge !== undefined && age < filters.minAge) {
+            return false;
+          }
+          if (filters.maxAge !== undefined && age > filters.maxAge) {
+            return false;
+          }
+        }
+
+        if (filters.firstName && filters.firstName.trim().length > 0) {
+          if (!u.first_name || !u.first_name.toLowerCase().includes(filters.firstName.toLowerCase().trim())) {
+            return false;
+          }
+        }
+
+        return true;
+      }).slice(0, SUGGESTED_USERS_LIMIT); // Limit to SUGGESTED_USERS_LIMIT after all filtering
+
+      console.log("filteredTopMatches: ", filteredTopMatches);
+      const userListItems = filteredTopMatches.map(user => this.mapUserToUserListItemDto(user, false));
+      return {
+        users: userListItems,
+        nextCursor: null,
+        hasMore: filteredTopMatches.length > SUGGESTED_USERS_LIMIT,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async resolveCityNameAndCountryNameByLatitudeAndLongitude(latitude: number, longitude: number): Promise<{ cityName: string, countryName: string }> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2&addressdetails=1`
+      );
+      if (!response.ok) {
+        console.error(response);
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve location for latitude: ${latitude} and longitude: ${longitude}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await response.json();
+      const validatedData = NominatimResponseSchema.safeParse(data);
+      if (!validatedData.success || !validatedData.data.address.country) {
+        console.error(validatedData);
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve location for latitude: ${latitude} and longitude: ${longitude}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const address = validatedData.data.address;
+      const cityName =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.suburb;
+      if (!cityName) {
+        console.error('No city name found in address:', address);
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve city name for latitude: ${latitude} and longitude: ${longitude}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      if (!address.country) {
+        console.error('No country name found in address:', address);
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve country name for latitude: ${latitude} and longitude: ${longitude}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      return { cityName, countryName: address.country };
+    } catch (error) {
+      console.error(error);
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async resolveLongitudeAndLatitudeByCityNameAndCountryName(cityName: string, countryName: string): Promise<{ longitude: number, latitude: number }> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?city=${cityName}&country=${countryName}&format=json&limit=1`
+      );
+      if (!response.ok) {
+        console.error(response);
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve location for city: ${cityName} and country: ${countryName}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await response.json();
+      const validatedData = NominatimSearchResponseSchema.safeParse(data);
+      if (!validatedData.success || validatedData.data.length === 0 || !validatedData.data[0].lat || !validatedData.data[0].lon) {
+        throw new CustomHttpException(
+          'FAILED_TO_RESOLVE_LOCATION',
+          `Failed to resolve location for city: ${cityName} and country: ${countryName}`,
+          'ERROR_FAILED_TO_RESOLVE_LOCATION',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      return { longitude: parseFloat(validatedData.data[0].lon), latitude: parseFloat(validatedData.data[0].lat) };
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async resolveLongitudeAndLatitudeByIPAddress(ipAddress: string): Promise<{ longitude: number, latitude: number }> {
+    try {
+      const response = await fetch(`http://ip-api.com/json/${ipAddress}`);
+      if (!response.ok) {
+        console.error(response);
+        throw new CustomHttpException('FAILED_TO_RESOLVE_LOCATION', `Failed to resolve location for IP address: ${ipAddress}`, 'ERROR_FAILED_TO_RESOLVE_LOCATION', HttpStatus.BAD_REQUEST);
+      }
+      const data = await response.json();
+      const validatedData = IPAPIResponseSchema.safeParse(data);
+      if (!validatedData.success) {
+        console.error('Failed to parse IP-API response:', validatedData.error);
+        throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      if (validatedData.data.status === 'fail') {
+        throw new CustomHttpException('FAILED_TO_RESOLVE_LOCATION', `Failed to resolve location for IP address: ${validatedData.data.message || 'Unknown error'}`, 'ERROR_FAILED_TO_RESOLVE_LOCATION', HttpStatus.BAD_REQUEST);
+      }
+      if (!validatedData.data.lon || !validatedData.data.lat) {
+        throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return { longitude: validatedData.data.lon, latitude: validatedData.data.lat };
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   }
 
   async findPublicProfileById(id: string): Promise<PublicUserDto | null> {
@@ -136,27 +637,144 @@ export class UserService {
     await this.usersRepository.updateEmailVerified(userId, isEmailVerified);
   }
 
+  private async resolveLocation(request: ResolveLocationRequest): Promise<Location> {
+    let resolvedLocation: Location;
+    switch (request.type) {
+      case 'latitudeAndLongitude': {
+        const resolved: { cityName: string, countryName: string } = await this.resolveCityNameAndCountryNameByLatitudeAndLongitude(request.latitude, request.longitude);
+        resolvedLocation = {
+          latitude: request.latitude,
+          longitude: request.longitude,
+          cityName: resolved.cityName,
+          countryName: resolved.countryName,
+        };
+        break;
+      }
+      case 'cityNameAndCountryName': {
+        const resolved: { longitude: number, latitude: number } = await this.resolveLongitudeAndLatitudeByCityNameAndCountryName(request.cityName, request.countryName);
+        resolvedLocation = {
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+          cityName: request.cityName,
+          countryName: request.countryName,
+        };
+        break;
+      }
+      case 'ipAddress': {
+        const resolvedLatitudeAndLongitude: { longitude: number, latitude: number } = await this.resolveLongitudeAndLatitudeByIPAddress(request.ipAddress);
+        const resolvedCityNameAndCountryName: { cityName: string, countryName: string } = await this.resolveCityNameAndCountryNameByLatitudeAndLongitude(resolvedLatitudeAndLongitude.latitude, resolvedLatitudeAndLongitude.longitude);
+        resolvedLocation = {
+          latitude: resolvedLatitudeAndLongitude.latitude,
+          longitude: resolvedLatitudeAndLongitude.longitude,
+          cityName: resolvedCityNameAndCountryName.cityName,
+          countryName: resolvedCityNameAndCountryName.countryName,
+        };
+        break;
+      }
+      default:
+        throw new CustomHttpException('INVALID_LOCATION_TYPE', 'Invalid location type', 'ERROR_INVALID_LOCATION_TYPE', HttpStatus.BAD_REQUEST);
+    }
+    return resolvedLocation;
+  }
+
+  private async incrementLocationList(cityName: string, countryName: string): Promise<void> {
+    try {
+      await this.redisRepository.incrementEntry(`location:${cityName}, ${countryName}`);
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  private async decrementLocationList(cityName: string, countryName: string): Promise<void> {
+    try {
+      await this.redisRepository.decrementEntry(`location:${cityName}, ${countryName}`);
+    } catch (error) {
+      console.error(error);
+      throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async updateLocation(userId: string, latitude: number, longitude: number): Promise<{ user: PrivateUserDto }> {
+    const oldUser = await this.usersRepository.findById(userId);
+    if (!oldUser) {
+      throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    if (oldUser.city_name && oldUser.country_name) {
+      try {
+        await this.decrementLocationList(oldUser.city_name, oldUser.country_name);
+      } catch (error) {
+        console.error('Failed to decrement old location counter in Redis:', error);
+      }
+    }
+
+    const location = await this.resolveLocation({
+      type: 'latitudeAndLongitude',
+      latitude,
+      longitude
+    });
+
+    const updatedUser = await this.usersRepository.updateLocation(userId, location);
+
+    try {
+      await this.incrementLocationList(location.cityName, location.countryName);
+    } catch (error) {
+      console.error('Failed to increment new location counter in Redis:', error);
+    }
+
+    return { user: this.mapUserToPrivateUserDto(updatedUser) };
+  }
+
   async completeProfile(userId: string, dto: CompleteProfileRequestDto): Promise<CompleteProfileResponseDto> {
     const existingUser = await this.usersRepository.findById(userId);
     if (!existingUser) { throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND); }
     if (existingUser.profile_completed) { throw new CustomHttpException('PROFILE_ALREADY_COMPLETED', 'Profile already completed', 'ERROR_PROFILE_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST); }
 
-    // Use a transaction to ensure both operations succeed or fail together
+    const location = await this.resolveLocation({
+      type: 'latitudeAndLongitude',
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+    });
+
+    if (existingUser.city_name && existingUser.country_name) {
+      await this.decrementLocationList(existingUser.city_name, existingUser.country_name);
+    }
+
+    // Update interests, complete profile, and update location in a transaction
     const user = await this.db.transaction(async (client) => {
       await this.interestRepository.updateUserInterests(userId, dto.interestIds, client);
 
-      const user = await this.usersRepository.completeProfile(
+      await this.usersRepository.completeProfile(
         userId,
         {
           dateOfBirth: dto.dateOfBirth,
           gender: dto.gender,
           sexualOrientation: dto.sexualOrientation,
           biography: dto.biography,
+        }
+      );
+
+      const user = await this.usersRepository.updateLocation(
+        userId,
+        {
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          cityName: location.cityName,
+          countryName: location.countryName,
         },
         client
       );
+
       return user;
     });
+
+    try {
+      await this.incrementLocationList(location.cityName, location.countryName);
+    } catch (error) {
+      console.error('Failed to increment location counter in Redis:', error);
+    }
+
     return { user: this.mapUserToPrivateUserDto(user) };
   }
 
@@ -168,6 +786,7 @@ export class UserService {
       sexualOrientation: dto.sexualOrientation,
       biography: dto.biography,
     });
+
     return { user: this.mapUserToPrivateUserDto(user) };
   }
 
@@ -202,16 +821,67 @@ export class UserService {
     const hasUserLikedUser = await this.hasUserLikedUser(toUserId, fromUserId);
     // Match found => Create chat and send notification to both users
     if (hasUserLikedUser) {
-      await this.chatRepository.createChat(fromUserId, toUserId);
-      await this.notificationService.createNotification({ userId: fromUserId, type: NotificationType.MATCH, sourceUserId: toUserId });
-      await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.MATCH, sourceUserId: fromUserId });
+      const existingChat = await this.chatRepository.findChatByUserIds(fromUserId, toUserId);
+      if (!existingChat) {
+        await this.chatRepository.createChat(fromUserId, toUserId);
+        await this.notificationService.createNotification({ userId: fromUserId, type: NotificationType.MATCH, sourceUserId: toUserId });
+        await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.MATCH, sourceUserId: fromUserId });
+      }
     } else { // Like notification
       await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.LIKE, sourceUserId: fromUserId });
     }
   }
 
   async unLikeUser(fromUserId: string, toUserId: string): Promise<void> {
+    if (fromUserId === toUserId) {
+      throw new CustomHttpException('SELF_UNLIKE_NOT_ALLOWED', 'You cannot unlike yourself.', 'ERROR_SELF_UNLIKE_NOT_ALLOWED', HttpStatus.BAD_REQUEST);
+    }
+    const like = await this.likesRepository.findByFromUserIdAndToUserId(fromUserId, toUserId);
+    if (!like) {
+      throw new CustomHttpException('NOT_LIKED_USER', 'You have not liked this user.', 'ERROR_NOT_LIKED_USER', HttpStatus.BAD_REQUEST);
+    }
     await this.likesRepository.unLikeUser(fromUserId, toUserId);
     await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.UNLIKE, sourceUserId: fromUserId });
+  }
+
+  async getCityNameByUserId(userId: string): Promise<string> {
+    return await this.usersRepository.getCityNameByUserId(userId);
+  }
+
+  async getCountryNameByUserId(userId: string): Promise<string> {
+    return await this.usersRepository.getCountryNameByUserId(userId);
+  }
+
+  async getLocationList(userId: string): Promise<GetLocationListResponseDto> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (!user.city_name || !user.country_name) {
+      throw new CustomHttpException('USER_LOCATION_NOT_SET', 'User location not set', 'ERROR_USER_LOCATION_NOT_SET', HttpStatus.BAD_REQUEST);
+    }
+    const locationKeys: string[] = await this.redisRepository.getEntries(`location:*`);
+    if (locationKeys.length === 0) {
+      return { locations: [] };
+    }
+    const countValues: (string | null)[] = await this.redisRepository.getEntriesBatch(locationKeys);
+    const locationEntries: LocationEntryDto[] = [];
+    for (let i = 0; i < locationKeys.length; i++) {
+      const key = locationKeys[i];
+      const locationString = key.replace('location:', '');
+      const [cityName, countryName] = locationString.split(', ');
+      const countValue = countValues[i];
+      const count = countValue ? parseInt(countValue, 10) : 0;
+      if (cityName === user.city_name && countryName === user.country_name) {
+        if (count - 1 <= 0) {
+          continue;
+        } else {
+          locationEntries.push({ cityName, countryName, count: count - 1 });
+        }
+      } else {
+        locationEntries.push({ cityName, countryName, count });
+      }
+    }
+    return { locations: locationEntries };
   }
 }

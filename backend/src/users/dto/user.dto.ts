@@ -21,6 +21,8 @@ export class PublicUserDto {
   fameRating: number;
   latitude: number | null;
   longitude: number | null;
+  cityName: string | null;
+  countryName: string | null;
   lastTimeActive: string | null;
   createdAt: string;
   photos: UserPhotoDto[];
