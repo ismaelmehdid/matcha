@@ -283,11 +283,15 @@ export class UserService {
     if (!user.latitude || !user.longitude || !currentUser.latitude || !currentUser.longitude || !user.interests || !currentUser.interests) {
       return 0;
     }
-    const distanceScore = 1 / (1 + this.getDistance(user.latitude, user.longitude, currentUser.latitude, currentUser.longitude));
-    const tagsScore = this.sharedTagsCount(user.interests.map(i => i.id), currentUser.interests.map(i => i.id));
-    const fameScore = user.fame_rating;
+    const distance = this.getDistance(user.latitude, user.longitude, currentUser.latitude, currentUser.longitude);
+    const sharedTagsCount = this.sharedTagsCount(user.interests.map(i => i.id), currentUser.interests.map(i => i.id));
+    const fameRating = user.fame_rating;
 
-    return distanceScore * 0.5 + tagsScore * 0.3 + fameScore * 0.2;
+    const distanceScore = 1 / (1 + distance / 100);
+    const tagsScore = Math.min(sharedTagsCount / 10, 1);
+    const fameScore = fameRating / 100;
+
+    return distanceScore * 0.6 + tagsScore * 0.25 + fameScore * 0.15;
   }
 
   private isSexualOrientationCompatible(
