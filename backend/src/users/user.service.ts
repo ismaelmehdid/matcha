@@ -775,6 +775,12 @@ export class UserService {
       console.error('Failed to increment location counter in Redis:', error);
     }
 
+    try {
+      await this.usersRepository.updateFameRating(userId);
+    } catch (error) {
+      console.error('Failed to update fame rating after profile completion:', error);
+    }
+
     return { user: this.mapUserToPrivateUserDto(user) };
   }
 
@@ -849,8 +855,23 @@ export class UserService {
         await this.notificationService.createNotification({ userId: fromUserId, type: NotificationType.MATCH, sourceUserId: toUserId });
         await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.MATCH, sourceUserId: fromUserId });
       }
+      // Update fame rating for both users (they both got a match)
+      try {
+        await Promise.all([
+          this.usersRepository.updateFameRating(fromUserId),
+          this.usersRepository.updateFameRating(toUserId),
+        ]);
+      } catch (error) {
+        console.error('Failed to update fame rating after match:', error);
+      }
     } else { // Like notification
       await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.LIKE, sourceUserId: fromUserId });
+      // Update fame rating for the user who received the like
+      try {
+        await this.usersRepository.updateFameRating(toUserId);
+      } catch (error) {
+        console.error('Failed to update fame rating after like:', error);
+      }
     }
   }
 
@@ -864,6 +885,13 @@ export class UserService {
     }
     await this.likesRepository.unLikeUser(fromUserId, toUserId);
     await this.notificationService.createNotification({ userId: toUserId, type: NotificationType.UNLIKE, sourceUserId: fromUserId });
+
+    // Update fame rating for the user who lost the like
+    try {
+      await this.usersRepository.updateFameRating(toUserId);
+    } catch (error) {
+      console.error('Failed to update fame rating after unlike:', error);
+    }
   }
 
   async getCityNameByUserId(userId: string): Promise<string> {

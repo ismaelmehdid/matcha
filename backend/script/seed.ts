@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 import cities from 'cities.json';
 import { createClient } from 'redis';
+import { calculateFameRating, FameRatingMetrics } from '../src/users/utils/fame-rating.calculator';
 
 interface RandomUser {
   id: string;
@@ -134,7 +135,7 @@ function createRandomUser(): RandomUser {
   const email = faker.internet.email({ firstName, lastName });
   const sexualOrientation: SexualOrientation = faker.helpers.arrayElement([SexualOrientation.STRAIGHT, SexualOrientation.GAY, SexualOrientation.BISEXUAL]);
   const biography = faker.lorem.paragraph();
-  const fameRating = faker.number.int({ min: 0, max: 100 });
+  const fameRating = 0;
   const city = getRandomCity();
   let cityName = '';
   let latitude = 0;
@@ -220,7 +221,7 @@ async function seedDatabase() {
       Gender.MALE,
       SexualOrientation.STRAIGHT,
       `Hi! I'm ${MAIN_USER_FIRSTNAME} and this is my test account with many matches and interactions!`,
-      85,
+      0, // Will be calculated later based on real metrics
       40.7128,
       -74.0060,
       'New York',
@@ -533,6 +534,65 @@ async function seedDatabase() {
       }
     }
     console.log('✅ Added reports');
+
+    // Recalculate fame ratings for all users based on real data
+    console.log('📊 Recalculating fame ratings for all users...');
+
+    // Get all user IDs
+    const allUsersResult = await client.query('SELECT id FROM users');
+    const allUserIds = allUsersResult.rows.map((row: { id: string }) => row.id);
+
+    let updatedCount = 0;
+    for (const userId of allUserIds) {
+      try {
+        // Calculate fame rating based on real metrics
+        const metricsResult = await client.query(`
+          SELECT
+            -- Profile completeness metrics
+            CASE WHEN u.profile_completed = TRUE THEN 20 ELSE 0 END as profile_completed_points,
+
+            -- Popularity metrics
+            (SELECT COUNT(*) FROM likes WHERE to_user_id = u.id) as likes_received,
+            (SELECT COUNT(*) FROM profile_views WHERE viewed_id = u.id) as views_received,
+            (
+              SELECT COUNT(*)
+              FROM likes l1
+              WHERE l1.to_user_id = u.id
+              AND EXISTS (
+                SELECT 1 FROM likes l2
+                WHERE l2.from_user_id = l1.to_user_id
+                AND l2.to_user_id = l1.from_user_id
+              )
+            ) as matches_count,
+
+            -- Account age in days
+            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - u.created_at)) / 86400 as days_active
+          FROM users u
+          WHERE u.id = $1
+        `, [userId]);
+
+        const data = metricsResult.rows[0];
+
+        // Use the fame rating calculator utility
+        const metrics: FameRatingMetrics = {
+          profileCompletedPoints: data.profile_completed_points,
+          likesReceived: parseInt(data.likes_received),
+          viewsReceived: parseInt(data.views_received),
+          matchesCount: parseInt(data.matches_count),
+          daysActive: parseFloat(data.days_active),
+        };
+
+        const fameRating = calculateFameRating(metrics);
+
+        // Update fame rating
+        await client.query('UPDATE users SET fame_rating = $1 WHERE id = $2', [fameRating, userId]);
+        updatedCount++;
+      } catch (error) {
+        console.error(`Failed to calculate fame rating for user ${userId}:`, error);
+      }
+    }
+
+    console.log(`✅ Recalculated fame ratings for ${updatedCount} users`);
 
     client.release();
     console.log('🎉 Database seeding completed successfully!');

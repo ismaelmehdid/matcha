@@ -5,6 +5,7 @@ import { CreateUserRequestDto } from '../dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { Gender, SexualOrientation } from '../enums/user.enums';
 import { Sort, SortOrder } from '../dto/get-users/get-users-request.dto';
+import { calculateFameRating, FameRatingMetrics } from '../utils/fame-rating.calculator';
 
 export interface UserPhoto {
   id: string;
@@ -732,6 +733,103 @@ export class UsersRepository {
     } catch (error) {
       console.error(error);
       throw new CustomHttpException('INTERNAL_SERVER_ERROR', 'An unexpected internal server error occurred.', 'ERROR_INTERNAL_SERVER', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async calculateFameRating(userId: string): Promise<number> {
+    try {
+      const query = `
+        SELECT
+          -- Profile completeness metrics
+          CASE WHEN u.profile_completed = TRUE THEN 20 ELSE 0 END as profile_completed_points,
+
+          -- Popularity metrics
+          (SELECT COUNT(*) FROM likes WHERE to_user_id = u.id) as likes_received,
+          (SELECT COUNT(*) FROM profile_views WHERE viewed_id = u.id) as views_received,
+          (
+            SELECT COUNT(*)
+            FROM likes l1
+            WHERE l1.to_user_id = u.id
+            AND EXISTS (
+              SELECT 1 FROM likes l2
+              WHERE l2.from_user_id = l1.to_user_id
+              AND l2.to_user_id = l1.from_user_id
+            )
+          ) as matches_count,
+
+          -- Account age in days
+          EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - u.created_at)) / 86400 as days_active
+        FROM users u
+        WHERE u.id = $1
+      `;
+
+      const result = await this.db.query<{
+        profile_completed_points: number;
+        likes_received: string;
+        views_received: string;
+        matches_count: string;
+        days_active: string;
+      }>(query, [userId]);
+
+      if (!result.rows[0]) {
+        throw new CustomHttpException(
+          'USER_NOT_FOUND',
+          `User with id ${userId} not found`,
+          'ERROR_USER_NOT_FOUND',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const data = result.rows[0];
+
+      // Use the fame rating calculator utility
+      const metrics: FameRatingMetrics = {
+        profileCompletedPoints: data.profile_completed_points,
+        likesReceived: parseInt(data.likes_received),
+        viewsReceived: parseInt(data.views_received),
+        matchesCount: parseInt(data.matches_count),
+        daysActive: parseFloat(data.days_active),
+      };
+
+      return calculateFameRating(metrics);
+    } catch (error) {
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+      console.error(error);
+      throw new CustomHttpException(
+        'INTERNAL_SERVER_ERROR',
+        'An unexpected internal server error occurred.',
+        'ERROR_INTERNAL_SERVER',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Update the fame rating for a user
+   */
+  async updateFameRating(userId: string): Promise<number> {
+    try {
+      const fameRating = await this.calculateFameRating(userId);
+
+      await this.db.query(`UPDATE users SET fame_rating = $1 WHERE id = $2`, [
+        fameRating,
+        userId,
+      ]);
+
+      return fameRating;
+    } catch (error) {
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+      console.error(error);
+      throw new CustomHttpException(
+        'INTERNAL_SERVER_ERROR',
+        'An unexpected internal server error occurred.',
+        'ERROR_INTERNAL_SERVER',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

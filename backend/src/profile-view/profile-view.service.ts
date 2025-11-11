@@ -22,6 +22,13 @@ export class ProfileViewService {
       type: NotificationType.VIEW,
       sourceUserId: currentUserId,
     });
+
+    // Update fame rating for the user whose profile was viewed
+    try {
+      await this.userRepository.updateFameRating(createProfileViewRequestDto.userId);
+    } catch (error) {
+      console.error('Failed to update fame rating after profile view:', error);
+    }
   }
 
   async getProfileViews(userId: string): Promise<GetProfileViewResponseDto> {

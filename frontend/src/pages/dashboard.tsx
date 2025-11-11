@@ -100,6 +100,12 @@ export function Dashboard() {
                       </span>
                     )}
                   </div>
+
+                  {/* Fame Rating */}
+                  <div className="mt-2 text-sm">
+                    <span className="text-muted-foreground">Fame Rating: </span>
+                    <span className="font-medium">{user.fameRating}/100</span>
+                  </div>
                 </div>
 
                 {/* Actions */}
