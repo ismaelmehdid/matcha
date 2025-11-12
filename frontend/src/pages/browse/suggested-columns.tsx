@@ -2,15 +2,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Toggle } from "@/components/ui/toggle";
-import { Heart } from "lucide-react";
 import type { UserListItem } from "@/types/browse";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 
-export function createSuggestedColumns(
-  onLike: (userId: string) => void,
-  onUnlike: (userId: string) => void
-): ColumnDef<UserListItem>[] {
+export function createSuggestedColumns(): ColumnDef<UserListItem>[] {
   return [
     {
       accessorKey: "profilePicture",
@@ -147,30 +142,6 @@ export function createSuggestedColumns(
         }>;
         const interestNames = interests.map((i) => i.name);
         return value.some((tag: string) => interestNames.includes(tag));
-      },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const user = row.original;
-        return (
-          <div className="flex gap-2">
-            <Toggle
-              onPressedChange={(pressed) => {
-                if (pressed) {
-                  onLike(user.id);
-                } else {
-                  onUnlike(user.id);
-                }
-              }}
-              pressed={user.liked}
-              variant="outline"
-              className="data-[state=on]:bg-red-400 data-[state=on]:text-white transition-colors duration-200"
-            >
-              <Heart className="w-4 h-4" />
-            </Toggle>
-          </div>
-        );
       },
     },
   ];

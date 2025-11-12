@@ -22,8 +22,6 @@ import { useLocationList } from "@/hooks/useLocationList";
 import { type Filters } from "@/hooks/useUsers";
 import { useUsers } from "@/hooks/useUsers";
 import { UserDataTable } from "./user-data-table";
-import { useLikeUser } from "@/hooks/useLikeUser";
-import { useUnlikeUser } from "@/hooks/useUnlikeUser";
 import { createBrowseAllColumns } from "./browse-all-columns";
 
 interface BrowseAllTableProps {
@@ -39,9 +37,7 @@ function BrowseAllTable({
   localSorting,
   setLocalSorting,
 }: Omit<BrowseAllTableProps, "columns">) {
-  const { likeUser } = useLikeUser();
-  const { unlikeUser } = useUnlikeUser();
-  const columns = createBrowseAllColumns(likeUser, unlikeUser);
+  const columns = createBrowseAllColumns();
   const { users, isLoading, hasMore, fetchNextPage, isFetchingNextPage } =
     useUsers(filters);
 

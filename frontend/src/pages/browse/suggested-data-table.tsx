@@ -14,14 +14,10 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { UserDataTable } from "./user-data-table";
-import { useLikeUser } from "@/hooks/useLikeUser";
-import { useUnlikeUser } from "@/hooks/useUnlikeUser";
 import { createSuggestedColumns } from "./suggested-columns";
 
 export function SuggestedDataTable() {
-  const { likeUser } = useLikeUser();
-  const { unlikeUser } = useUnlikeUser();
-  const columns = createSuggestedColumns(likeUser, unlikeUser);
+  const columns = createSuggestedColumns();
   const [filterValues, setFilterValues] = useState({
     firstName: "",
     minAge: 18,
