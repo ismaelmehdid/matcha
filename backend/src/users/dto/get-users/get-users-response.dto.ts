@@ -10,7 +10,6 @@ export class UserListItemDto {
   cityName: string | null;
   countryName: string | null;
   interests: UserInterestDto[];
-  liked: boolean;
 }
 
 export class GetUsersResponseDto {

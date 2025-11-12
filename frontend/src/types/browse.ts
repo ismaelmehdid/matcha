@@ -23,8 +23,7 @@ export const UserListItemSchema = z.object({
   fameRating: z.number(),
   cityName: z.string().nullable(),
   countryName: z.string().nullable(),
-  interests: z.array(InterestSchema),
-  liked: z.boolean(),
+  interests: z.array(InterestSchema)
 });
 
 export const GetUsersResponseSchema = z.object({

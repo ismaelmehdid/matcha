@@ -168,7 +168,7 @@ export class UserService {
     return age;
   }
 
-  private mapUserToUserListItemDto(user: User, liked: boolean): UserListItemDto {
+  private mapUserToUserListItemDto(user: User): UserListItemDto {
     const age = this.calculateAge(user.date_of_birth);
     const profilePicture = user.photos?.find(p => p.is_profile_pic)?.url || user.photos?.[0]?.url || '';
 
@@ -182,7 +182,6 @@ export class UserService {
       cityName: user.city_name || null,
       countryName: user.country_name || null,
       interests: user.interests?.map(i => ({ id: i.id, name: i.name })) || [],
-      liked,
     };
   }
 
@@ -202,14 +201,11 @@ export class UserService {
 
       const users = await this.usersRepository.getUsers(userId, filters, MAX_PAGE_SIZE + 1, getUsersRequestDto.sort);
 
-      const likedUserIds = await this.likesRepository.findAllUsersWhoUserLiked(userId);
-      const likedUserIdsSet = new Set(likedUserIds.map(like => like.to_user_id));
-
       const hasMore = users.length > MAX_PAGE_SIZE;
       const usersToReturn = hasMore ? users.slice(0, MAX_PAGE_SIZE) : users;
 
       const userListItems = usersToReturn.map(user =>
-        this.mapUserToUserListItemDto(user, likedUserIdsSet.has(user.id))
+        this.mapUserToUserListItemDto(user)
       );
 
       // Store in the cursor the last user infos so we can use it in the next request.
@@ -452,7 +448,7 @@ export class UserService {
       }).slice(0, SUGGESTED_USERS_LIMIT); // Limit to SUGGESTED_USERS_LIMIT after all filtering
 
       console.log("filteredTopMatches: ", filteredTopMatches);
-      const userListItems = filteredTopMatches.map(user => this.mapUserToUserListItemDto(user, false));
+      const userListItems = filteredTopMatches.map(user => this.mapUserToUserListItemDto(user));
       return {
         users: userListItems,
         nextCursor: null,
