@@ -41,6 +41,7 @@ import { useCompleteProfile } from "@/hooks/useUserProfile";
 import { useUploadPhotos } from "@/hooks/usePhotos";
 import { calculateAge, getMaxDate, formatDateForInput } from "@/utils/dateUtils";
 import { LocationSelector } from "./LocationSelector";
+import { toast } from "sonner";
 
 const fileSchema = z
   .instanceof(File)
@@ -71,7 +72,8 @@ const formSchema = z.object({
     .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
   interests: z.array(z.string()).min(1, "At least one interest is required"),
-  photos: z.array(fileSchema).min(1, "At least one photo is required").max(6, "Maximum 6 photos allowed"),
+  // Allow sparse array with undefined elements, will be filtered in onSubmit
+  photos: z.array(fileSchema.optional()).max(6, "Maximum 6 photos allowed"),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   cityName: z.string().min(1, "Please share your location to see matches nearby"),
@@ -95,9 +97,11 @@ type FormData = z.infer<typeof formSchema>;
 function FileInputWithCamera({
   onChange,
   onRemove,
+  isProfilePicture = false,
 }: {
   onChange?: (file: File | null) => void;
   onRemove?: () => void;
+  isProfilePicture?: boolean;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -151,6 +155,11 @@ function FileInputWithCamera({
               alt="Preview"
               className="w-full h-full object-cover"
             />
+            {isProfilePicture && (
+              <div className="absolute top-1 left-1 z-20 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-md font-medium">
+                Profile Picture
+              </div>
+            )}
             <Button
               type="button"
               onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
@@ -174,8 +183,12 @@ function FileInputWithCamera({
 
 function PhotoUploadGrid({
   onPhotoChange,
+  currentPhotos = [],
+  profilePictureIndex,
 }: {
   onPhotoChange: (index: number, file: File | null) => void;
+  currentPhotos?: (File | undefined)[];
+  profilePictureIndex?: number;
 }) {
   const handlePhotoChange = (index: number) => (file: File | null) => {
     onPhotoChange(index, file);
@@ -186,14 +199,20 @@ function PhotoUploadGrid({
       <div className="flex gap-2">
         {[0, 1, 2].map((index) => (
           <div key={index} className="flex-1">
-            <FileInputWithCamera onChange={handlePhotoChange(index)} />
+            <FileInputWithCamera
+              onChange={handlePhotoChange(index)}
+              isProfilePicture={profilePictureIndex === index && currentPhotos[index] !== undefined}
+            />
           </div>
         ))}
       </div>
       <div className="flex gap-2">
         {[3, 4, 5].map((index) => (
           <div key={index} className="flex-1">
-            <FileInputWithCamera onChange={handlePhotoChange(index)} />
+            <FileInputWithCamera
+              onChange={handlePhotoChange(index)}
+              isProfilePicture={profilePictureIndex === index && currentPhotos[index] !== undefined}
+            />
           </div>
         ))}
       </div>
@@ -205,6 +224,9 @@ export function CompleteProfileForm({ user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
   const { signOut } = useAuth();
   const { mutate: completeProfile, isPending } = useCompleteProfile();
+
+  // Track the index of the first uploaded photo (will be profile picture)
+  const [profilePictureIndex, setProfilePictureIndex] = useState<number | undefined>(undefined);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -232,6 +254,10 @@ export function CompleteProfileForm({ user }: { user: User }) {
     formState: { errors },
   } = form;
   const selectedInterests = watch("interests");
+  const watchedLatitude = watch("latitude");
+  const watchedLongitude = watch("longitude");
+  const watchedCityName = watch("cityName");
+  const watchedCountryName = watch("countryName");
 
   const handleInterestToggle = (interestId: string) => {
     const currentInterests = selectedInterests || [];
@@ -267,13 +293,17 @@ export function CompleteProfileForm({ user }: { user: User }) {
       return;
     }
 
-    if (!data.photos || data.photos.length === 0) {
+    // Filter out undefined elements from photos array
+    const validPhotos = data.photos?.filter((photo): photo is File => photo !== undefined && photo !== null) || [];
+
+    if (validPhotos.length === 0) {
+      toast.error("Please upload at least one photo");
       return;
     }
 
     try {
-      // First, upload photos
-      await uploadPhotos.mutateAsync(data.photos);
+      // First, upload photos (filtered array without undefined)
+      await uploadPhotos.mutateAsync(validPhotos);
 
       // Then, complete profile (photos are already uploaded)
       completeProfile({
@@ -453,9 +483,15 @@ export function CompleteProfileForm({ user }: { user: User }) {
                 control={control}
                 render={({ field }) => (
                   <PhotoUploadGrid
+                    currentPhotos={field.value || []}
+                    profilePictureIndex={profilePictureIndex}
                     onPhotoChange={(index, file) => {
                       const currentPhotos = field.value || [];
                       if (file) {
+                        // Set profile picture index on first upload
+                        if (profilePictureIndex === undefined) {
+                          setProfilePictureIndex(index);
+                        }
                         const newPhotos = [...currentPhotos];
                         newPhotos[index] = file;
                         field.onChange(newPhotos);
@@ -485,12 +521,12 @@ export function CompleteProfileForm({ user }: { user: User }) {
                   setValue("countryName", location.countryName, { shouldValidate: true });
                 }}
                 currentLocation={
-                  watch("latitude") && watch("longitude")
+                  watchedLatitude && watchedLongitude
                     ? {
-                        latitude: watch("latitude")!,
-                        longitude: watch("longitude")!,
-                        cityName: watch("cityName"),
-                        countryName: watch("countryName"),
+                        latitude: watchedLatitude,
+                        longitude: watchedLongitude,
+                        cityName: watchedCityName,
+                        countryName: watchedCountryName,
                       }
                     : null
                 }

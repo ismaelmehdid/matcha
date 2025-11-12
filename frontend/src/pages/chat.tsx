@@ -14,6 +14,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
 import { getInitials } from "@/lib/utils";
+import { getPhotoUrl } from "@/utils/photoUtils";
 
 function ConversationCardContent({
   conversation,
@@ -251,10 +252,9 @@ export function Chat() {
                       <div className="relative">
                         <Avatar className="h-10 w-10">
                           <AvatarImage
-                            src={
-                              conversation.profilePreview.profilePicture ||
-                              undefined
-                            }
+                            src={getPhotoUrl(
+                              conversation.profilePreview.profilePicture
+                            )}
                             alt={`${conversation.profilePreview.firstName} ${conversation.profilePreview.lastName}`}
                           />
                           <AvatarFallback>
@@ -310,10 +310,9 @@ export function Chat() {
                     </Button>
                     <Avatar className="h-10 w-10">
                       <AvatarImage
-                        src={
-                          selectedConversation.profilePreview.profilePicture ||
-                          undefined
-                        }
+                        src={getPhotoUrl(
+                          selectedConversation.profilePreview.profilePicture
+                        )}
                         alt={`${selectedConversation.profilePreview.firstName} ${selectedConversation.profilePreview.lastName}`}
                       />
                       <AvatarFallback>

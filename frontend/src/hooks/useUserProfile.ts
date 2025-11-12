@@ -22,8 +22,9 @@ export function useCompleteProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: userApi.completeProfile,
-    onSuccess: ({ data, messageKey }: { data: User; messageKey: string }) => {
+    onSuccess: async ({ data, messageKey }: { data: User; messageKey: string }) => {
       queryClient.setQueryData(['user'], data);
+      await queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success(getToastMessage(messageKey));
     },
     onError: (error) => {

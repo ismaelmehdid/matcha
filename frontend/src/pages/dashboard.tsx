@@ -15,6 +15,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { Confetti } from "@/components/ui/confetti";
+import { getPhotoUrl } from "@/utils/photoUtils";
 
 export function Dashboard() {
   const { data: user, isLoading } = useCurrentUser();
@@ -58,7 +59,7 @@ export function Dashboard() {
                 <div className="flex-shrink-0">
                   {profilePic ? (
                     <img
-                      src={profilePic.url}
+                      src={getPhotoUrl(profilePic.url)}
                       alt={`${user.firstName}'s profile`}
                       className="w-32 h-32 rounded-full object-cover border-2 border-border"
                     />

@@ -4,6 +4,7 @@ import { getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { UserListItem } from "@/types/browse";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
+import { getPhotoUrl } from "@/utils/photoUtils";
 
 export function createSuggestedColumns(): ColumnDef<UserListItem>[] {
   return [
@@ -14,7 +15,7 @@ export function createSuggestedColumns(): ColumnDef<UserListItem>[] {
         return (
           <Avatar className="size-10">
             <AvatarImage
-              src={row.original.profilePicture}
+              src={getPhotoUrl(row.original.profilePicture)}
               alt={`${row.original.firstName} ${row.original.lastName}`}
             />
             <AvatarFallback className="bg-primary text-primary-foreground">
