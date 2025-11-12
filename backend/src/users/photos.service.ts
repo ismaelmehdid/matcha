@@ -16,6 +16,7 @@ export interface PhotoUploadResult {
   id: string;
   url: string;
   isProfilePic: boolean;
+  createdAt: string;
 }
 
 @Injectable()
@@ -107,6 +108,16 @@ export class PhotosService {
 
     // Delete file from filesystem
     await this.deleteFileFromDisk(deletedPhoto.url);
+
+    // If deleted photo was the profile picture, auto-promote another photo
+    if (deletedPhoto.is_profile_pic) {
+      const remainingPhotos = await this.photosRepository.getUserPhotos(userId);
+
+      // If user still has photos, set the first one as profile picture
+      if (remainingPhotos.length > 0) {
+        await this.photosRepository.setProfilePicture(remainingPhotos[0].id, userId);
+      }
+    }
   }
 
   /**
@@ -121,6 +132,7 @@ export class PhotosService {
       id: photo.id,
       url: photo.url,
       isProfilePic: photo.is_profile_pic,
+      createdAt: photo.created_at.toISOString(),
     };
   }
 
@@ -134,6 +146,7 @@ export class PhotosService {
       id: photo.id,
       url: photo.url,
       isProfilePic: photo.is_profile_pic,
+      createdAt: photo.created_at.toISOString(),
     }));
   }
 
@@ -226,6 +239,7 @@ export class PhotosService {
       id: photo.id,
       url: photo.url,
       isProfilePic: photo.is_profile_pic,
+      createdAt: photo.created_at.toISOString(),
     };
   }
 

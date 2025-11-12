@@ -29,27 +29,18 @@ import {
   TagsValue,
 } from "@/components/ui/shadcn-io/tags";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useRef, useEffect, type ChangeEvent } from "react";
-import { Button } from "./ui/button";
-import { Camera, XIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompleteProfile } from "@/hooks/useUserProfile";
-import { useUploadPhotos } from "@/hooks/usePhotos";
 import { calculateAge, getMaxDate, formatDateForInput } from "@/utils/dateUtils";
 import { LocationSelector } from "./LocationSelector";
-import { toast } from "sonner";
-
-const fileSchema = z
-  .instanceof(File)
-  .refine((file) => file.size <= 5 * 1024 * 1024, "File must be less than 5 MB")
-  .refine(
-    (file) => ["image/jpeg", "image/png"].includes(file.type),
-    "Unsupported file format"
-  );
+import { PhotoManager } from "./PhotoManager";
+import { useUserPhotos } from "@/hooks/usePhotos";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   dateOfBirth: z
@@ -72,8 +63,6 @@ const formSchema = z.object({
     .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
   interests: z.array(z.string()).min(1, "At least one interest is required"),
-  // Allow sparse array with undefined elements, will be filtered in onSubmit
-  photos: z.array(fileSchema.optional()).max(6, "Maximum 6 photos allowed"),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   cityName: z.string().min(1, "Please share your location to see matches nearby"),
@@ -94,139 +83,19 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-function FileInputWithCamera({
-  onChange,
-  onRemove,
-  isProfilePicture = false,
-}: {
-  onChange?: (file: File | null) => void;
-  onRemove?: () => void;
-  isProfilePicture?: boolean;
-}) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onChange?.(file);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
-  };
-
-  const handleRemove = () => {
-    onChange?.(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    onRemove?.();
-  };
-
-  return (
-    <div className="relative w-full">
-      <div className="w-full h-50 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-gray-400 transition-colors relative overflow-hidden cursor-pointer">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        />
-        {previewUrl ? (
-          <>
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
-            {isProfilePicture && (
-              <div className="absolute top-1 left-1 z-20 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-md font-medium">
-                Profile Picture
-              </div>
-            )}
-            <Button
-              type="button"
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.stopPropagation();
-                handleRemove();
-              }}
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 z-20 rounded-full"
-            >
-              <XIcon size={12} />
-            </Button>
-          </>
-        ) : (
-          <Camera className="w-6 h-6 text-gray-400" />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PhotoUploadGrid({
-  onPhotoChange,
-  currentPhotos = [],
-  profilePictureIndex,
-}: {
-  onPhotoChange: (index: number, file: File | null) => void;
-  currentPhotos?: (File | undefined)[];
-  profilePictureIndex?: number;
-}) {
-  const handlePhotoChange = (index: number) => (file: File | null) => {
-    onPhotoChange(index, file);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        {[0, 1, 2].map((index) => (
-          <div key={index} className="flex-1">
-            <FileInputWithCamera
-              onChange={handlePhotoChange(index)}
-              isProfilePicture={profilePictureIndex === index && currentPhotos[index] !== undefined}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        {[3, 4, 5].map((index) => (
-          <div key={index} className="flex-1">
-            <FileInputWithCamera
-              onChange={handlePhotoChange(index)}
-              isProfilePicture={profilePictureIndex === index && currentPhotos[index] !== undefined}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function CompleteProfileForm({ user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
   const { signOut } = useAuth();
   const { mutate: completeProfile, isPending } = useCompleteProfile();
+  const { data: photos = [] } = useUserPhotos();
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
-  // Track the index of the first uploaded photo (will be profile picture)
-  const [profilePictureIndex, setProfilePictureIndex] = useState<number | undefined>(undefined);
+  // Clear photo error when photos are uploaded
+  useEffect(() => {
+    if (photos.length > 0) {
+      setPhotoError(null);
+    }
+  }, [photos.length]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -238,7 +107,6 @@ export function CompleteProfileForm({ user }: { user: User }) {
       sexualOrientation: user.sexualOrientation ?? undefined,
       biography: user.biography ?? "",
       interests: user.interests.map((interest) => interest.id),
-      photos: [], // TODO: Once photos hosting is implemented, handle photos already uploaded by the user here if any
       latitude: undefined,
       longitude: undefined,
       cityName: "",
@@ -286,39 +154,26 @@ export function CompleteProfileForm({ user }: { user: User }) {
     );
   };
 
-  const uploadPhotos = useUploadPhotos();
-
   const onSubmit = async (data: FormData) => {
     if (data.latitude === undefined || data.longitude === undefined) {
       return;
     }
 
-    // Filter out undefined elements from photos array
-    const validPhotos = data.photos?.filter((photo): photo is File => photo !== undefined && photo !== null) || [];
-
-    if (validPhotos.length === 0) {
-      toast.error("Please upload at least one photo");
+    // Validate that user has uploaded at least one photo
+    if (photos.length === 0) {
+      setPhotoError("You must upload at least one photo before completing your profile");
       return;
     }
 
-    try {
-      // First, upload photos (filtered array without undefined)
-      await uploadPhotos.mutateAsync(validPhotos);
-
-      // Then, complete profile (photos are already uploaded)
-      completeProfile({
-        dateOfBirth: data.dateOfBirth,
-        gender: data.gender,
-        sexualOrientation: data.sexualOrientation,
-        biography: data.biography,
-        interestIds: data.interests,
-        latitude: data.latitude,
-        longitude: data.longitude,
-      });
-    } catch (error) {
-      // Error is handled by uploadPhotos hook (shows toast)
-      console.error("Failed to upload photos:", error);
-    }
+    completeProfile({
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender,
+      sexualOrientation: data.sexualOrientation,
+      biography: data.biography,
+      interestIds: data.interests,
+      latitude: data.latitude,
+      longitude: data.longitude,
+    });
   };
 
   return (
@@ -477,37 +332,13 @@ export function CompleteProfileForm({ user }: { user: User }) {
               )}
             </Field>
             <Field>
-              <FieldLabel>Upload up to 6 pictures of yourself</FieldLabel>
-              <Controller
-                name="photos"
-                control={control}
-                render={({ field }) => (
-                  <PhotoUploadGrid
-                    currentPhotos={field.value || []}
-                    profilePictureIndex={profilePictureIndex}
-                    onPhotoChange={(index, file) => {
-                      const currentPhotos = field.value || [];
-                      if (file) {
-                        // Set profile picture index on first upload
-                        if (profilePictureIndex === undefined) {
-                          setProfilePictureIndex(index);
-                        }
-                        const newPhotos = [...currentPhotos];
-                        newPhotos[index] = file;
-                        field.onChange(newPhotos);
-                      } else {
-                        const newPhotos = currentPhotos.filter(
-                          (_, photoIndex) => photoIndex !== index
-                        );
-                        field.onChange(newPhotos);
-                      }
-                    }}
-                  />
-                )}
-              />
-              {errors.photos && (
+              <label className="text-sm leading-snug font-semibold">
+                Upload your photos
+              </label>
+              <PhotoManager />
+              {photoError && (
                 <p className="text-sm text-red-500 mt-1">
-                  {errors.photos.message}
+                  {photoError}
                 </p>
               )}
             </Field>

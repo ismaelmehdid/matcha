@@ -1,6 +1,23 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/api/user/user";
 import { toast } from "sonner";
+
+export interface Photo {
+  id: string;
+  url: string;
+  isProfilePic: boolean;
+  createdAt: string;
+}
+
+/**
+ * Hook for fetching user photos
+ */
+export function useUserPhotos() {
+  return useQuery<Photo[]>({
+    queryKey: ['user', 'photos'],
+    queryFn: userApi.getUserPhotos,
+  });
+}
 
 /**
  * Hook for uploading photos
@@ -11,7 +28,8 @@ export function useUploadPhotos() {
   return useMutation({
     mutationFn: (files: File[]) => userApi.uploadPhotos(files),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success("Photos uploaded successfully");
     },
     onError: (error: any) => {
@@ -30,7 +48,8 @@ export function useDeletePhoto() {
   return useMutation({
     mutationFn: (photoId: string) => userApi.deletePhoto(photoId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success("Photo deleted successfully");
     },
     onError: (error: any) => {
@@ -49,7 +68,8 @@ export function useSetProfilePicture() {
   return useMutation({
     mutationFn: (photoId: string) => userApi.setProfilePicture(photoId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success("Profile picture updated successfully");
     },
     onError: (error: any) => {

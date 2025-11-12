@@ -24,6 +24,8 @@ export const messageMap: Record<string, string> = {
   "ERROR_NO_UPDATE_FIELDS": "No fields provided for update.",
   "ERROR_VALIDATION_FAILED": "The data you provided is invalid. Please check your inputs and try again.",
   "ERROR_INVALID_INTEREST_IDS": "One or more interest IDs are invalid.",
+  "ERROR_NO_PHOTOS": "You must upload at least one photo before completing your profile",
+  "ERROR_NO_PROFILE_PICTURE": "You must select a profile picture",
   "ERROR_UNKNOWN": "An unknown error occurred. Please try again.",
 }
 

@@ -740,6 +740,18 @@ export class UserService {
       );
     }
 
+    // Validate that user has a profile picture set
+    const photos = await this.photosRepository.getUserPhotos(userId);
+    const hasProfilePicture = photos.some(photo => photo.is_profile_pic);
+    if (!hasProfilePicture) {
+      throw new CustomHttpException(
+        'NO_PROFILE_PICTURE',
+        'You must select a profile picture',
+        'ERROR_NO_PROFILE_PICTURE',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const location = await this.resolveLocation({
       type: 'latitudeAndLongitude',
       latitude: dto.latitude,

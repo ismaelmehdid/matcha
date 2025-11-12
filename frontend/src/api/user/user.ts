@@ -241,6 +241,30 @@ export const userApi = {
   },
 
   // Photo management endpoints
+  getUserPhotos: async (): Promise<{ id: string; url: string; isProfilePic: boolean; createdAt: string }[]> => {
+    const PhotoSchema = z.object({
+      id: z.string(),
+      url: z.string(),
+      isProfilePic: z.boolean(),
+      createdAt: z.string(),
+    });
+
+    const GetPhotosResponseSchema = z.object({
+      photos: z.array(PhotoSchema),
+    });
+
+    const response = await parseApiResponse(
+      apiClient.get('/users/me/photos'),
+      createApiResponseSchema(GetPhotosResponseSchema)
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+
+    return response.data.photos;
+  },
+
   uploadPhotos: async (files: File[]): Promise<{ id: string; url: string; isProfilePic: boolean }[]> => {
     const formData = new FormData();
     files.forEach((file) => {
