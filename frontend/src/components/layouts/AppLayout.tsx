@@ -2,11 +2,14 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Home,
   User,
   Search,
   MessageCircle,
+  Moon,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
 import { NotificationMenu } from "../ui/notification-bell";
@@ -19,7 +22,9 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { data: notifications } = useNotifications();
   const { data: unreadMessagesCount } = useUnreadMessagesCount();
 
@@ -88,10 +93,24 @@ export function AppLayout({ children }: AppLayoutProps) {
               <NotificationMenu notifications={notifications ?? []} />
             </div>
 
-            {/* Sign out button */}
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              Sign Out
-            </Button>
+            {/* Theme toggle + Sign out buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+              >
+                {theme === 'light' ? (
+                  <Moon className="h-5 w-5" />
+                ) : (
+                  <Sun className="h-5 w-5" />
+                )}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>

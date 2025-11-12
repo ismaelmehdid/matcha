@@ -145,7 +145,7 @@ function ConversationCardContent({
                   className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg break-words ${
                     msg.senderId === user?.id
                       ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-900"
+                      : "bg-muted text-foreground"
                   }`}
                 >
                   <p className="text-sm">{msg.content}</p>
@@ -153,7 +153,7 @@ function ConversationCardContent({
                     className={`text-xs mt-1 ${
                       msg.senderId === user?.id
                         ? "text-blue-100"
-                        : "text-gray-500"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {new Date(msg.createdAt).toLocaleTimeString([], {
@@ -241,9 +241,9 @@ export function Chat() {
                 {conversations.map((conversation) => (
                   <div
                     key={conversation.chatId}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b last:border-b-0 ${
+                    className={`p-4 cursor-pointer hover:bg-accent transition-colors border-b last:border-b-0 ${
                       selectedConversation?.chatId === conversation.chatId
-                        ? "bg-blue-50 border-l-4 border-l-blue-500"
+                        ? "bg-accent border-l-4 border-l-primary"
                         : ""
                     }`}
                     onClick={() => setSelectedConversation(conversation)}
@@ -267,7 +267,7 @@ export function Chat() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {conversation.profilePreview.firstName}{" "}
                             {conversation.profilePreview.lastName}
                           </p>
@@ -323,7 +323,7 @@ export function Chat() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-foreground">
                         {selectedConversation.profilePreview.firstName}{" "}
                         {selectedConversation.profilePreview.lastName}
                       </h3>
