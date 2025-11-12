@@ -30,7 +30,7 @@ export class NotificationRepository {
 
   async findAllNotifications(userId: string): Promise<Notification[]> {
     try {
-      const result = await this.db.query<Notification>(`SELECT id, user_id, type, source_user_id, read, created_at FROM notifications WHERE user_id = $1`, [userId]);
+      const result = await this.db.query<Notification>(`SELECT id, user_id, type, source_user_id, read, created_at FROM notifications WHERE user_id = $1 AND read = FALSE`, [userId]);
       return result.rows;
     } catch (error) {
       console.error(error);

@@ -87,7 +87,7 @@ export function NotificationMenu({
           </>
         ) : (
           <DropdownMenuItem>
-            <p className="text-sm font-medium">No notifications for now</p>
+            <p className="text-sm font-medium">No new notifications for now</p>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
