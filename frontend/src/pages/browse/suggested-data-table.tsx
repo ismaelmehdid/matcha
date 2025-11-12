@@ -117,10 +117,10 @@ export function SuggestedDataTable() {
     <div className="flex flex-col flex-1 min-h-0">
       {/* Filters row */}
       {isReady ? (
-        <div className="flex items-center gap-2 flex-shrink-0 pb-2">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-2 flex-shrink-0 pb-2">
           <Input
             placeholder="Search by first name..."
-            className="max-w-sm"
+            className="max-w-sm w-full xl:w-auto xl:max-w-sm"
             value={filterValues.firstName}
             onChange={(e) => {
               setFilterValues((prev) => ({
@@ -129,59 +129,61 @@ export function SuggestedDataTable() {
               }));
             }}
           />
-          <DataTableRangeFilter
-            title="Age range"
-            min={18}
-            max={99}
-            currentFrom={filterValues.minAge}
-            currentTo={filterValues.maxAge}
-            setFilter={(range) => {
-              setFilterValues((prev) => ({
-                ...prev,
-                minAge: range.from,
-                maxAge: range.to,
-              }));
-            }}
-          />
-          <DataTableRangeFilter
-            title="Fame rating range"
-            min={0}
-            max={100}
-            currentFrom={filterValues.minFame}
-            currentTo={filterValues.maxFame}
-            setFilter={(range) => {
-              setFilterValues((prev) => ({
-                ...prev,
-                minFame: range.from,
-                maxFame: range.to,
-              }));
-            }}
-          />
-          <DataTableFacetedFilter
-            title="Location"
-            options={locationOptions}
-            selectedValues={filterValues.locations}
-            onSelectionChange={(selected) => {
-              setFilterValues((prev) => ({
-                ...prev,
-                locations: selected,
-              }));
-            }}
-          />
-          <DataTableFacetedFilter
-            title="Interests"
-            options={interests.map((interest) => ({
-              label: interest.name,
-              value: interest.name,
-            }))}
-            selectedValues={filterValues.tags}
-            onSelectionChange={(selected) => {
-              setFilterValues((prev) => ({
-                ...prev,
-                tags: selected,
-              }));
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-2 xl:flex-1">
+            <DataTableRangeFilter
+              title="Age range"
+              min={18}
+              max={99}
+              currentFrom={filterValues.minAge}
+              currentTo={filterValues.maxAge}
+              setFilter={(range) => {
+                setFilterValues((prev) => ({
+                  ...prev,
+                  minAge: range.from,
+                  maxAge: range.to,
+                }));
+              }}
+            />
+            <DataTableRangeFilter
+              title="Fame rating range"
+              min={0}
+              max={100}
+              currentFrom={filterValues.minFame}
+              currentTo={filterValues.maxFame}
+              setFilter={(range) => {
+                setFilterValues((prev) => ({
+                  ...prev,
+                  minFame: range.from,
+                  maxFame: range.to,
+                }));
+              }}
+            />
+            <DataTableFacetedFilter
+              title="Location"
+              options={locationOptions}
+              selectedValues={filterValues.locations}
+              onSelectionChange={(selected) => {
+                setFilterValues((prev) => ({
+                  ...prev,
+                  locations: selected,
+                }));
+              }}
+            />
+            <DataTableFacetedFilter
+              title="Interests"
+              options={interests.map((interest) => ({
+                label: interest.name,
+                value: interest.name,
+              }))}
+              selectedValues={filterValues.tags}
+              onSelectionChange={(selected) => {
+                setFilterValues((prev) => ({
+                  ...prev,
+                  tags: selected,
+                }));
+              }}
+            />
+          </div>
         </div>
       ) : (
         <div className="flex items-center gap-2 flex-shrink-0">

@@ -128,7 +128,7 @@ export function createSuggestedColumns(
       },
       cell: ({ row }) => {
         return (
-          <div className="min-w-[400px] overflow-x-auto">
+          <div className="max-w-[400px] overflow-x-auto">
             {row.original.interests.map((interest) => (
               <Badge key={interest.id} className="mr-2">
                 {interest.name}

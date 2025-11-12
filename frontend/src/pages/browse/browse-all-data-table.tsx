@@ -183,48 +183,62 @@ export function BrowseAllDataTable() {
     <div className="flex flex-col flex-1 min-h-0">
       {/* Filters row */}
       {!isInterestsLoading && interests && !isLocationsLoading && locations ? (
-        <div className="flex items-center gap-2 flex-shrink-0 pb-2">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-2 flex-shrink-0 pb-2">
           <Input
             placeholder="Search by first name..."
             ref={firstNameInputRef}
-            className="max-w-sm"
+            className="max-w-sm w-full xl:w-auto xl:max-w-sm"
             defaultValue={filters?.firstName}
           />
-          <DataTableRangeFilter
-            ref={ageRangeRef}
-            title="Age range"
-            min={18}
-            max={99}
-            currentFrom={filters?.minAge}
-            currentTo={filters?.maxAge}
-          />
-          <DataTableRangeFilter
-            ref={fameRangeRef}
-            title="Fame rating range"
-            min={0}
-            max={100}
-            currentFrom={filters?.minFame}
-            currentTo={filters?.maxFame}
-          />
-          <DataTableFacetedFilter
-            ref={locationFilterRef}
-            title="Location"
-            options={(locations || []).map((location) => ({
-              label: `${location.cityName}, ${location.countryName}`,
-              value: `${location.cityName}, ${location.countryName}`,
-            }))}
-            selectedValues={filters?.locations || []}
-          />
-          <DataTableFacetedFilter
-            ref={interestsFilterRef}
-            title="Interests"
-            options={interests.map((interest: Interest) => ({
-              label: interest.name,
-              value: interest.name,
-            }))}
-            selectedValues={filters?.tags || []}
-          />
-          <Button size="sm" className="ml-auto" onClick={handleSearch}>
+          <div className="flex flex-wrap items-center gap-2 xl:flex-1">
+            <DataTableRangeFilter
+              ref={ageRangeRef}
+              title="Age range"
+              min={18}
+              max={99}
+              currentFrom={filters?.minAge}
+              currentTo={filters?.maxAge}
+            />
+            <DataTableRangeFilter
+              ref={fameRangeRef}
+              title="Fame rating range"
+              min={0}
+              max={100}
+              currentFrom={filters?.minFame}
+              currentTo={filters?.maxFame}
+            />
+            <DataTableFacetedFilter
+              ref={locationFilterRef}
+              title="Location"
+              options={(locations || []).map((location) => ({
+                label: `${location.cityName}, ${location.countryName}`,
+                value: `${location.cityName}, ${location.countryName}`,
+              }))}
+              selectedValues={filters?.locations || []}
+            />
+            <DataTableFacetedFilter
+              ref={interestsFilterRef}
+              title="Interests"
+              options={interests.map((interest: Interest) => ({
+                label: interest.name,
+                value: interest.name,
+              }))}
+              selectedValues={filters?.tags || []}
+            />
+            <Button
+              size="sm"
+              className="hidden md:flex ml-auto shrink-0"
+              onClick={handleSearch}
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </Button>
+          </div>
+          <Button
+            size="sm"
+            className="md:hidden shrink-0"
+            onClick={handleSearch}
+          >
             <Search className="w-4 h-4 mr-2" />
             Search
           </Button>
