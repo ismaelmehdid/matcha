@@ -198,6 +198,34 @@ export class PhotosService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // Validate minimum dimensions (200x200)
+      const MIN_WIDTH = 200;
+      const MIN_HEIGHT = 200;
+      if (!metadata.width || !metadata.height) {
+        throw new Error('Cannot determine image dimensions');
+      }
+
+      if (metadata.width < MIN_WIDTH || metadata.height < MIN_HEIGHT) {
+        throw new CustomHttpException(
+          'IMAGE_TOO_SMALL',
+          `Image dimensions must be at least ${MIN_WIDTH}x${MIN_HEIGHT} pixels. Your image is ${metadata.width}x${metadata.height}`,
+          'ERROR_IMAGE_TOO_SMALL',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Validate aspect ratio (reject extreme proportions)
+      const MAX_ASPECT_RATIO = 3; // Maximum 3:1 or 1:3 ratio
+      const aspectRatio = metadata.width / metadata.height;
+      if (aspectRatio > MAX_ASPECT_RATIO || aspectRatio < (1 / MAX_ASPECT_RATIO)) {
+        throw new CustomHttpException(
+          'INVALID_ASPECT_RATIO',
+          `Image aspect ratio is too extreme. Maximum ratio is ${MAX_ASPECT_RATIO}:1`,
+          'ERROR_INVALID_ASPECT_RATIO',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     } catch (error) {
       if (error instanceof CustomHttpException) {
         throw error;

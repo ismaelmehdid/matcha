@@ -15,29 +15,62 @@ interface PhotoSlotProps {
 }
 
 function PhotoSlot({ photo, onUpload, onDelete, onSetProfilePic, isUploading }: PhotoSlotProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File must be less than 5MB');
-        return;
-      }
+    if (!file) return;
 
-      // Validate file type
-      if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        toast.error('Only JPEG and PNG files are supported');
-        return;
-      }
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File must be less than 5MB');
+      return;
+    }
 
-      onUpload(file);
+    // Validate file type
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      toast.error('Only JPEG and PNG files are supported');
+      return;
+    }
+
+    // Validate image dimensions and aspect ratio
+    try {
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(imageUrl); // Clean up memory
+
+        // Check minimum dimensions (200x200)
+        const MIN_WIDTH = 200;
+        const MIN_HEIGHT = 200;
+        if (img.width < MIN_WIDTH || img.height < MIN_HEIGHT) {
+          toast.error(`Image must be at least ${MIN_WIDTH}x${MIN_HEIGHT} pixels. Your image is ${img.width}x${img.height}`);
+          return;
+        }
+
+        // Check aspect ratio (max 3:1 or 1:3)
+        const MAX_ASPECT_RATIO = 3;
+        const aspectRatio = img.width / img.height;
+        if (aspectRatio > MAX_ASPECT_RATIO || aspectRatio < (1 / MAX_ASPECT_RATIO)) {
+          toast.error('Image aspect ratio is too extreme. Please use a more standard image proportion');
+          return;
+        }
+
+        // All validations passed, proceed with upload
+        onUpload(file);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        toast.error('Failed to load image. Please try a different file');
+      };
+
+      img.src = imageUrl;
+    } catch (error) {
+      toast.error('Failed to validate image');
     }
   };
-
-  const photoUrl = photo ? getPhotoUrl(photo.url) : null;
 
   return (
     <div className="relative w-full aspect-square">
@@ -51,10 +84,10 @@ function PhotoSlot({ photo, onUpload, onDelete, onSetProfilePic, isUploading }: 
           disabled={!!photo || isUploading}
         />
 
-        {photoUrl ? (
+        {photo ? (
           <>
             <img
-              src={photoUrl}
+              src={getPhotoUrl(photo.url)}
               alt="Uploaded photo"
               className="w-full h-full object-cover"
             />

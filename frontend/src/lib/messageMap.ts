@@ -39,6 +39,8 @@ export const messageMap: Record<string, string> = {
   "ERROR_PHOTO_UPLOAD_FAILED": "Photo upload failed. Please try again later",
   "ERROR_PHOTO_NOT_FOUND": "Photo not found. It may have been already deleted",
   "PROFILE_PIC_ALREADY_EXISTS": "A profile picture is already set for this user",
+  "ERROR_IMAGE_TOO_SMALL": "Image is too small. Minimum dimensions are 200x200 pixels",
+  "ERROR_INVALID_ASPECT_RATIO": "Image aspect ratio is too extreme. Please use a more standard image proportion",
   "ERROR_UNKNOWN": "An unknown error occurred. Please try again.",
 }
 
