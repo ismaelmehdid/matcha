@@ -30,11 +30,15 @@ export function useUploadPhotos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      toast.success("Photos uploaded successfully");
+      toast.success("Photos uploaded successfully", {
+        id: 'photo-upload', // Prevent toast spam when uploading multiple photos
+      });
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Failed to upload photos";
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        id: 'photo-upload', // Use same ID to replace success toast if error occurs
+      });
     },
   });
 }
@@ -50,11 +54,15 @@ export function useDeletePhoto() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      toast.success("Photo deleted successfully");
+      toast.success("Photo deleted successfully", {
+        id: 'photo-delete', // Prevent toast spam when deleting multiple photos
+      });
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Failed to delete photo";
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        id: 'photo-delete', // Use same ID to replace success toast if error occurs
+      });
     },
   });
 }
@@ -70,11 +78,15 @@ export function useSetProfilePicture() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', 'photos'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      toast.success("Profile picture updated successfully");
+      toast.success("Profile picture updated successfully", {
+        id: 'profile-picture-update', // Prevent toast spam when rapidly changing profile picture
+      });
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Failed to set profile picture";
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        id: 'profile-picture-update', // Use same ID to replace success toast if error occurs
+      });
     },
   });
 }
