@@ -35,12 +35,6 @@ export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropMo
       setImageSrc(reader.result as string);
     };
     reader.readAsDataURL(file);
-
-    return () => {
-      if (imageSrc) {
-        URL.revokeObjectURL(imageSrc);
-      }
-    };
   }, [file]);
 
   // Callback when crop area changes

@@ -6,6 +6,16 @@ import { Skeleton } from './ui/skeleton';
 import { getPhotoUrl } from '@/utils/photoUtils';
 import { toast } from 'sonner';
 import { ImageCropModal, type CropData } from './ImageCropModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 
 interface PhotoSlotProps {
   photo?: Photo;
@@ -109,8 +119,8 @@ function PhotoSlot({ photo, onUpload, onDelete, onSetProfilePic, isUploading }: 
       )}
 
       <div className={`relative w-full aspect-square ${photo || isUploading ? 'pointer-events-none' : ''}`}>
-        <div className={`w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center transition-colors relative overflow-hidden ${
-          !photo && !isUploading ? 'hover:border-gray-400 cursor-pointer' : ''
+        <div className={`w-full h-full border-2 border-dashed border-border rounded-lg flex items-center justify-center transition-colors relative overflow-hidden ${
+          !photo && !isUploading ? 'hover:border-muted-foreground cursor-pointer' : ''
         }`}>
           <input
           ref={fileInputRef}
@@ -167,7 +177,7 @@ function PhotoSlot({ photo, onUpload, onDelete, onSetProfilePic, isUploading }: 
           </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-1 md:gap-2 p-2 md:p-4 text-center pointer-events-none">
-              <Camera className="w-6 h-6 md:w-8 md:h-8 text-gray-400" />
+              <Camera className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground" />
               <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
                 Drag & drop<br className="md:hidden" /> or click
               </p>
@@ -179,6 +189,17 @@ function PhotoSlot({ photo, onUpload, onDelete, onSetProfilePic, isUploading }: 
   );
 }
 
+/**
+ * PhotoManager is a key feature component that manages the user's photo gallery.
+ *
+ * - Displays up to 6 photo slots, showing existing user photos and empty slots for uploads.
+ * - Allows users to upload new photos (with optional cropping), delete existing photos, and set a photo as their profile picture.
+ * - Handles loading states and enforces a maximum of 6 photos.
+ * - Integrates with user photo hooks for data fetching and mutations.
+ *
+ * This component does not accept any props; it manages its own state and side effects.
+ * It is intended to be used on user profile or settings pages where photo management is required.
+ */
 export function PhotoManager() {
   const { data: photos = [], isLoading } = useUserPhotos();
   const uploadPhoto = useUploadPhoto();
@@ -186,6 +207,7 @@ export function PhotoManager() {
   const setProfilePicture = useSetProfilePicture();
 
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<string | null>(null);
 
   const handleUpload = async (file: File, cropData?: CropData) => {
     if (photos.length >= 6) {
@@ -201,16 +223,21 @@ export function PhotoManager() {
     }
   };
 
-  const handleDelete = async (photoId: string) => {
+  const handleDeleteClick = (photoId: string) => {
     // Prevent deleting the last photo
     if (photos.length === 1) {
       toast.error('You must have at least one photo. Please upload a new photo before deleting this one.');
       return;
     }
 
-    if (window.confirm('Are you sure you want to delete this photo?')) {
-      await deletePhoto.mutateAsync(photoId);
-    }
+    setPhotoToDelete(photoId);
+  };
+
+  const confirmDelete = async () => {
+    if (!photoToDelete) return;
+
+    await deletePhoto.mutateAsync(photoToDelete);
+    setPhotoToDelete(null);
   };
 
   const handleSetProfilePic = async (photoId: string) => {
@@ -236,19 +263,38 @@ export function PhotoManager() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-2">
-        {slots.map((photo, index) => (
-          <PhotoSlot
-            key={photo?.id || `empty-${index}`}
-            photo={photo || undefined}
-            onUpload={handleUpload}
-            onDelete={() => photo && handleDelete(photo.id)}
-            onSetProfilePic={() => photo && handleSetProfilePic(photo.id)}
-            isUploading={uploadingIndex === index}
-          />
-        ))}
+    <>
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          {slots.map((photo, index) => (
+            <PhotoSlot
+              key={photo?.id || `empty-${index}`}
+              photo={photo || undefined}
+              onUpload={handleUpload}
+              onDelete={() => photo && handleDeleteClick(photo.id)}
+              onSetProfilePic={() => photo && handleSetProfilePic(photo.id)}
+              isUploading={uploadingIndex === index}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+
+      <AlertDialog open={!!photoToDelete} onOpenChange={(open) => !open && setPhotoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Photo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this photo? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
