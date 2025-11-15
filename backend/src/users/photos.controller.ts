@@ -11,11 +11,15 @@ import {
   UploadedFile,
   ParseUUIDPipe,
   Body,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorators';
 import { PhotosService } from './photos.service';
+import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import {
   UploadPhotoResponseDto,
   SetProfilePictureResponseDto,
@@ -41,7 +45,15 @@ export class PhotosController {
       fileFilter: (_req, file, callback) => {
         // Only allow JPEG and PNG
         if (!file.mimetype.match(/^image\/(jpeg|png)$/)) {
-          return callback(new Error('Only JPEG and PNG images are allowed'), false);
+          return callback(
+            new CustomHttpException(
+              'INVALID_FILE_TYPE',
+              'Only JPEG and PNG images are allowed',
+              'ERROR_INVALID_FILE_TYPE',
+              HttpStatus.BAD_REQUEST,
+            ),
+            false,
+          );
         }
         callback(null, true);
       },
@@ -52,14 +64,35 @@ export class PhotosController {
     @UploadedFile() file: Express.Multer.File,
     @Body('cropData') cropDataJson?: string,
   ): Promise<{ success: boolean; data: UploadPhotoResponseDto; messageKey: string }> {
-    // Parse cropData if provided (sent as JSON string in FormData)
+    // Parse and validate cropData if provided (sent as JSON string in FormData)
     let cropData: CropDataDto | undefined;
     if (cropDataJson) {
       try {
-        cropData = JSON.parse(cropDataJson);
+        const parsed = JSON.parse(cropDataJson);
+        const cropDataInstance = plainToInstance(CropDataDto, parsed);
+        
+        const errors = await validate(cropDataInstance);
+        if (errors.length > 0) {
+          const errorMessages = errors
+            .map(err => Object.values(err.constraints || {}).join(', '))
+            .join('; ');
+          throw new CustomHttpException(
+            'INVALID_CROP_DATA',
+            `Invalid crop data: ${errorMessages}`,
+            'ERROR_VALIDATION_FAILED',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        
+        cropData = cropDataInstance;
       } catch (error) {
-        // Invalid JSON, ignore cropData
-        cropData = undefined;
+        if (error instanceof CustomHttpException) throw error;
+        throw new CustomHttpException(
+          'INVALID_CROP_DATA_JSON',
+          'Crop data must be valid JSON',
+          'ERROR_VALIDATION_FAILED',
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 

@@ -280,8 +280,7 @@ export class PhotosService {
     await sharpInstance
       .resize(1024, 1024, {
         fit: 'cover',           // Crop to fill the square
-        position: 'center',     // Center the crop area
-        withoutEnlargement: true
+        position: 'center'      // Center the crop area
       })
       .jpeg({ quality: 85 })
       .toFile(filePath);

@@ -12,9 +12,10 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  // Increase JSON body size limit for large payloads
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Set reasonable JSON and URL-encoded body size limits to prevent DoS attacks
+  // Photo uploads use multipart/form-data handled by multer with 5MB limit
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   // Serve static files from uploads directory
   // Use process.cwd() to get the root directory (/app in Docker)
