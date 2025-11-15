@@ -5,6 +5,7 @@ import { Profile } from "./pages/profile";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { Spinner } from "./components/ui/spinner";
 import { AuthLayout } from "./components/layouts/AuthLayout";
 import { Signin } from "./pages/auth/sign-in";
@@ -98,10 +99,11 @@ function PublicRoute({ children }: { children: ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ChatProvider>
-          <Toaster />
-          <Routes>
+      <ThemeProvider>
+        <AuthProvider>
+          <ChatProvider>
+            <Toaster />
+            <Routes>
             <Route path="/auth" element={<AuthLayout />}>
               <Route index element={<Navigate to="sign-in" replace />} />
               <Route
@@ -189,6 +191,7 @@ function App() {
           </Routes>
         </ChatProvider>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

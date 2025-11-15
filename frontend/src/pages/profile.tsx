@@ -5,6 +5,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { InterestsSelector } from "@/components/InterestsSelector";
 import { LocationSelector } from "@/components/LocationSelector";
+import { PhotoManager } from "@/components/PhotoManager";
 
 export function Profile() {
   const { user, isLoading, isSuccess } = useUser();
@@ -78,6 +79,18 @@ export function Profile() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Photo Gallery</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Upload up to 6 photos. Click the star to set your profile picture.
+            </p>
+            <PhotoManager />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Account Details</CardTitle>
           </CardHeader>
           <CardContent>
@@ -100,7 +113,7 @@ export function Profile() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card>
           <CardHeader>
             <CardTitle>Interests</CardTitle>
           </CardHeader>

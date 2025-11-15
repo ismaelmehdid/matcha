@@ -29,25 +29,18 @@ import {
   TagsValue,
 } from "@/components/ui/shadcn-io/tags";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useRef, useEffect, type ChangeEvent } from "react";
-import { Button } from "./ui/button";
-import { Camera, XIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompleteProfile } from "@/hooks/useUserProfile";
 import { calculateAge, getMaxDate, formatDateForInput } from "@/utils/dateUtils";
 import { LocationSelector } from "./LocationSelector";
-
-const fileSchema = z
-  .instanceof(File)
-  .refine((file) => file.size <= 5 * 1024 * 1024, "File must be less than 5 MB")
-  .refine(
-    (file) => ["image/jpeg", "image/png"].includes(file.type),
-    "Unsupported file format"
-  );
+import { PhotoManager } from "./PhotoManager";
+import { useUserPhotos } from "@/hooks/usePhotos";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   dateOfBirth: z
@@ -70,8 +63,6 @@ const formSchema = z.object({
     .min(5, "Biography must be at least 5 characters")
     .max(500, "Biography must be less than 500 characters"),
   interests: z.array(z.string()).min(1, "At least one interest is required"),
-  // TODO: Make photos required when backend endpoint is ready
-  photos: z.array(fileSchema).optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   cityName: z.string().min(1, "Please share your location to see matches nearby"),
@@ -92,119 +83,12 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-function FileInputWithCamera({
-  onChange,
-  onRemove,
-}: {
-  onChange?: (file: File | null) => void;
-  onRemove?: () => void;
-}) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onChange?.(file);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
-  };
-
-  const handleRemove = () => {
-    onChange?.(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    onRemove?.();
-  };
-
-  return (
-    <div className="relative w-full">
-      <div className="w-full h-50 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-gray-400 transition-colors relative overflow-hidden cursor-pointer">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        />
-        {previewUrl ? (
-          <>
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
-            <Button
-              type="button"
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.stopPropagation();
-                handleRemove();
-              }}
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 z-20 rounded-full"
-            >
-              <XIcon size={12} />
-            </Button>
-          </>
-        ) : (
-          <Camera className="w-6 h-6 text-gray-400" />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PhotoUploadGrid({
-  onPhotoChange,
-}: {
-  onPhotoChange: (index: number, file: File | null) => void;
-}) {
-  const handlePhotoChange = (index: number) => (file: File | null) => {
-    onPhotoChange(index, file);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        {[0, 1, 2].map((index) => (
-          <div key={index} className="flex-1">
-            <FileInputWithCamera onChange={handlePhotoChange(index)} />
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        {[3, 4, 5].map((index) => (
-          <div key={index} className="flex-1">
-            <FileInputWithCamera onChange={handlePhotoChange(index)} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function CompleteProfileForm({ user }: { user: User }) {
   const { data: interestsOptions, isLoading, isSuccess } = useInterests();
   const { signOut } = useAuth();
   const { mutate: completeProfile, isPending } = useCompleteProfile();
+  const { data: photos = [] } = useUserPhotos();
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -216,7 +100,6 @@ export function CompleteProfileForm({ user }: { user: User }) {
       sexualOrientation: user.sexualOrientation ?? undefined,
       biography: user.biography ?? "",
       interests: user.interests.map((interest) => interest.id),
-      photos: [], // TODO: Once photos hosting is implemented, handle photos already uploaded by the user here if any
       latitude: undefined,
       longitude: undefined,
       cityName: "",
@@ -229,9 +112,22 @@ export function CompleteProfileForm({ user }: { user: User }) {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = form;
+
+  // Show photo error immediately when form is submitted
+  useEffect(() => {
+    if (isSubmitted && photos.length === 0) {
+      setPhotoError("You must upload at least one photo before completing your profile");
+    } else if (photos.length > 0) {
+      setPhotoError(null);
+    }
+  }, [isSubmitted, photos.length]);
   const selectedInterests = watch("interests");
+  const watchedLatitude = watch("latitude");
+  const watchedLongitude = watch("longitude");
+  const watchedCityName = watch("cityName");
+  const watchedCountryName = watch("countryName");
 
   const handleInterestToggle = (interestId: string) => {
     const currentInterests = selectedInterests || [];
@@ -260,11 +156,17 @@ export function CompleteProfileForm({ user }: { user: User }) {
     );
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (data.latitude === undefined || data.longitude === undefined) {
       return;
     }
-    // TODO: Add photo upload endpoint on backend
+
+    // Validate that user has uploaded at least one photo
+    if (photos.length === 0) {
+      setPhotoError("You must upload at least one photo before completing your profile");
+      return;
+    }
+
     completeProfile({
       dateOfBirth: data.dateOfBirth,
       gender: data.gender,
@@ -432,31 +334,13 @@ export function CompleteProfileForm({ user }: { user: User }) {
               )}
             </Field>
             <Field>
-              <FieldLabel>Upload up to 6 pictures of yourself</FieldLabel>
-              <Controller
-                name="photos"
-                control={control}
-                render={({ field }) => (
-                  <PhotoUploadGrid
-                    onPhotoChange={(index, file) => {
-                      const currentPhotos = field.value || [];
-                      if (file) {
-                        const newPhotos = [...currentPhotos];
-                        newPhotos[index] = file;
-                        field.onChange(newPhotos);
-                      } else {
-                        const newPhotos = currentPhotos.filter(
-                          (_, photoIndex) => photoIndex !== index
-                        );
-                        field.onChange(newPhotos);
-                      }
-                    }}
-                  />
-                )}
-              />
-              {errors.photos && (
+              <label className="text-sm leading-snug font-semibold">
+                Upload your photos
+              </label>
+              <PhotoManager />
+              {photoError && (
                 <p className="text-sm text-red-500 mt-1">
-                  {errors.photos.message}
+                  {photoError}
                 </p>
               )}
             </Field>
@@ -470,12 +354,12 @@ export function CompleteProfileForm({ user }: { user: User }) {
                   setValue("countryName", location.countryName, { shouldValidate: true });
                 }}
                 currentLocation={
-                  watch("latitude") && watch("longitude")
+                  watchedLatitude && watchedLongitude
                     ? {
-                        latitude: watch("latitude")!,
-                        longitude: watch("longitude")!,
-                        cityName: watch("cityName"),
-                        countryName: watch("countryName"),
+                        latitude: watchedLatitude,
+                        longitude: watchedLongitude,
+                        cityName: watchedCityName,
+                        countryName: watchedCountryName,
                       }
                     : null
                 }

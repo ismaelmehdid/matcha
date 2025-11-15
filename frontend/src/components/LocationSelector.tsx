@@ -127,8 +127,8 @@ export function LocationSelector({
       )}
 
       {((currentLocation?.cityName && currentLocation?.countryName) || (resolvedLocation?.cityName && resolvedLocation?.countryName)) ? (
-        <div className="bg-green-50 border border-green-200 rounded-md p-3">
-          <p className="text-sm font-medium text-green-800">
+        <div className="bg-accent/50 border border-border rounded-md p-3">
+          <p className="text-sm font-medium text-foreground">
             Current location: {resolvedLocation?.cityName || currentLocation?.cityName}, {resolvedLocation?.countryName || currentLocation?.countryName}
           </p>
         </div>
@@ -147,9 +147,9 @@ export function LocationSelector({
       </div>
 
       {status === 'error' && error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3">
-          <p className="text-sm font-medium text-red-800 mb-1">Location Error</p>
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3">
+          <p className="text-sm font-medium text-destructive mb-1">Location Error</p>
+          <p className="text-sm text-destructive/90">{error}</p>
         </div>
       )}
     </div>

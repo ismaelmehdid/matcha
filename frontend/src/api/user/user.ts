@@ -239,4 +239,101 @@ export const userApi = {
     }
     return response.data;
   },
+
+  // Photo management endpoints
+  getUserPhotos: async (): Promise<{ id: string; url: string; isProfilePic: boolean; createdAt: string }[]> => {
+    const PhotoSchema = z.object({
+      id: z.string(),
+      url: z.string(),
+      isProfilePic: z.boolean(),
+      createdAt: z.string(),
+    });
+
+    const GetPhotosResponseSchema = z.object({
+      photos: z.array(PhotoSchema),
+    });
+
+    const response = await parseApiResponse(
+      apiClient.get('/users/me/photos'),
+      createApiResponseSchema(GetPhotosResponseSchema)
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+
+    return response.data.photos;
+  },
+
+  uploadPhoto: async (
+    file: File,
+    cropData?: { x: number; y: number; width: number; height: number }
+  ): Promise<{ id: string; url: string; isProfilePic: boolean }> => {
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    // Add cropData as JSON string if provided
+    if (cropData) {
+      formData.append('cropData', JSON.stringify(cropData));
+    }
+
+    const PhotoSchema = z.object({
+      id: z.string(),
+      url: z.string(),
+      isProfilePic: z.boolean(),
+    });
+
+    const UploadPhotoResponseSchema = z.object({
+      photo: PhotoSchema,
+    });
+
+    const response = await parseApiResponse(
+      apiClient.post('/users/me/photos', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }),
+      createApiResponseSchema(UploadPhotoResponseSchema)
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+
+    return response.data.photo;
+  },
+
+  deletePhoto: async (photoId: string): Promise<void> => {
+    const response = await parseApiResponse(
+      apiClient.delete(`/users/me/photos/${photoId}`),
+      createApiResponseSchema(z.void())
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+  },
+
+  setProfilePicture: async (photoId: string): Promise<{ id: string; url: string; isProfilePic: boolean }> => {
+    const PhotoSchema = z.object({
+      id: z.string(),
+      url: z.string(),
+      isProfilePic: z.boolean(),
+    });
+
+    const SetProfilePictureResponseSchema = z.object({
+      photo: PhotoSchema,
+    });
+
+    const response = await parseApiResponse(
+      apiClient.put(`/users/me/photos/${photoId}/profile`),
+      createApiResponseSchema(SetProfilePictureResponseSchema)
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+
+    return response.data.photo;
+  },
 };
