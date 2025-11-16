@@ -1,7 +1,7 @@
 import { Routes, Navigate } from "react-router";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Dashboard } from "./pages/dashboard";
-import { Profile } from "./pages/profile";
+import { Activity } from "./pages/activity";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth, useUser } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
@@ -164,10 +164,10 @@ function App() {
               }
             />
             <Route
-              path="/profile"
+              path="/activity"
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <Activity />
                 </ProtectedRoute>
               }
             />

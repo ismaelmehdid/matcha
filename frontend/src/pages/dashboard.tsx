@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useCurrentUser } from "@/hooks/useUserProfile";
 import { Spinner } from "@/components/ui/spinner";
 import { CompleteProfile } from "@/components/complete-profile";
@@ -15,9 +16,11 @@ import {
   MapPin,
 } from "lucide-react";
 import { getPhotoUrl } from "@/utils/photoUtils";
+import { EditProfileDialog } from "@/components/EditProfileDialog";
 
 export function Dashboard() {
   const { data: user, isLoading } = useCurrentUser();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Loading state
   if (isLoading) {
@@ -112,8 +115,8 @@ export function Dashboard() {
 
                 {/* Actions */}
                 <div className="flex md:flex-col gap-2 justify-center md:justify-start">
-                  <Button variant="outline" asChild className="md:w-auto">
-                    <Link to="/profile">Edit Profile</Link>
+                  <Button variant="outline" className="md:w-auto" onClick={() => setIsEditDialogOpen(true)}>
+                    Edit Profile
                   </Button>
                 </div>
               </div>
@@ -144,8 +147,8 @@ export function Dashboard() {
                 <p className="text-sm text-muted-foreground mb-4">
                   See who liked you, matched with you, and viewed your profile
                 </p>
-                <Button disabled className="w-full mt-auto">
-                  Coming Soon
+                <Button asChild className="w-full mt-auto">
+                  <Link to="/activity">View Activity</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -165,6 +168,9 @@ export function Dashboard() {
             </Card>
           </div>
         </div>
+
+        {/* Edit Profile Dialog */}
+        <EditProfileDialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />
       </AppLayout>
     );
   }

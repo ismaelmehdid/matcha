@@ -47,7 +47,7 @@ export function NotificationMenu({
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-          <BellIcon className="h-4 w-4" />
+          <BellIcon className="h-5 w-5" />
           {notificationsUnreadCount > 0 && (
             <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
               {notificationsUnreadCount > 9 ? "9+" : notificationsUnreadCount}

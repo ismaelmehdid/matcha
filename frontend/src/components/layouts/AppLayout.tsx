@@ -5,9 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
   Home,
-  User,
   Search,
   MessageCircle,
+  Activity,
   Moon,
   Sun,
   type LucideIcon,
@@ -40,7 +40,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     disabled?: boolean;
   }> = [
     { path: "/", label: "Dashboard", icon: Home },
-    { path: "/profile", label: "Profile", icon: User },
+    { path: "/activity", label: "Activity", icon: Activity },
     { path: "/browse", label: "Browse", icon: Search, disabled: false },
     { path: "/chat", label: "Chat", icon: MessageCircle, disabled: false },
   ];
@@ -107,7 +107,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <Sun className="h-5 w-5" />
                 )}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <Button variant="outline" size="default" onClick={handleSignOut}>
                 Sign Out
               </Button>
             </div>
