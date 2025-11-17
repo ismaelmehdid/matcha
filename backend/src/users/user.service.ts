@@ -26,6 +26,7 @@ import {
 } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { FindAllLikesResponseDto } from './dto/find-all-likes/find-all-likes-response.dto';
+import { FindAllLikesSentResponseDto } from './dto/find-all-likes-sent/find-all-likes-sent-response.dto';
 import { RedisRepository } from 'src/redis/repositories/redis.repository';
 import { GetUsersRequestDto } from './dto/get-users/get-users-request.dto';
 import { GetUsersResponseDto, UserListItemDto } from './dto/get-users/get-users-response.dto';
@@ -174,7 +175,7 @@ export class UserService {
     return age;
   }
 
-  private mapUserToUserListItemDto(user: User): UserListItemDto {
+  private mapUserToUserListItemDto(user: User, distance?: number): UserListItemDto {
     const age = this.calculateAge(user.date_of_birth);
     const profilePicture = user.photos?.find(p => p.is_profile_pic)?.url || user.photos?.[0]?.url || '';
 
@@ -189,6 +190,7 @@ export class UserService {
       cityName: user.city_name || null,
       countryName: user.country_name || null,
       interests: user.interests?.map(i => ({ id: i.id, name: i.name })) || [],
+      distance,
     };
   }
 
@@ -246,6 +248,15 @@ export class UserService {
             case 'interests':
               const commonInterestsCount = await this.usersRepository.getCommonInterestsCount(userId, lastUser.id);
               sortValue = commonInterestsCount.toString();
+              break;
+            case 'distance':
+              const currentUser = await this.usersRepository.findById(userId);
+              if (!currentUser || !currentUser.latitude || !currentUser.longitude || !lastUser.latitude || !lastUser.longitude) {
+                sortValue = '999999'; // Large distance for users without coordinates
+              } else {
+                const distance = this.getDistance(currentUser.latitude, currentUser.longitude, lastUser.latitude, lastUser.longitude);
+                sortValue = distance.toFixed(2);
+              }
               break;
           }
           nextCursor = `${sortValue},${lastTimeActive},${createdAt},${lastUser.id}`;
@@ -455,7 +466,14 @@ export class UserService {
       }).slice(0, SUGGESTED_USERS_LIMIT); // Limit to SUGGESTED_USERS_LIMIT after all filtering
 
       console.log("filteredTopMatches: ", filteredTopMatches);
-      const userListItems = filteredTopMatches.map(user => this.mapUserToUserListItemDto(user));
+      const userListItems = filteredTopMatches.map(user => {
+        // Calculate distance for sorting purposes
+        let distance: number | undefined;
+        if (user.latitude && user.longitude && currentUser.latitude && currentUser.longitude) {
+          distance = this.getDistance(currentUser.latitude, currentUser.longitude, user.latitude, user.longitude);
+        }
+        return this.mapUserToUserListItemDto(user, distance);
+      });
       return {
         users: userListItems,
         nextCursor: null,
@@ -932,6 +950,32 @@ export class UserService {
             firstName: liker.firstName,
             lastName: liker.lastName,
             profilePicture: liker.profilePicture,
+          }
+        };
+      })
+    };
+  }
+
+  async findAllLikesSent(userId: string): Promise<FindAllLikesSentResponseDto> {
+    const likesSent: LikeSent[] = await this.likesRepository.findAllUsersWhoUserLiked(userId);
+    const userIds = likesSent.map(like => like.to_user_id);
+    const users = await this.usersRepository.findAllPreviewByIds(userIds);
+
+    // Create a map for quick lookup
+    const usersMap = new Map(users.map(user => [user.id, user]));
+
+    return {
+      likes: likesSent.map(like => {
+        const liked = usersMap.get(like.to_user_id);
+        return {
+          id: like.to_user_id, // Using to_user_id as the like ID
+          likedAt: like.created_at.toISOString(),
+          liked: {
+            id: liked.id,
+            username: liked.username,
+            firstName: liked.firstName,
+            lastName: liked.lastName,
+            profilePicture: liked.profilePicture,
           }
         };
       })

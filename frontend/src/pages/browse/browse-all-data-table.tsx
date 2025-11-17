@@ -118,30 +118,39 @@ export function BrowseAllDataTable() {
     firstName: "",
   });
 
-  const [localSorting, setLocalSorting] = useState<SortingState>(() => {
-    if (filters?.sort) {
-      return [
-        {
-          id: filters.sort.sortBy,
-          desc: filters.sort.sortOrder === "desc",
-        },
-      ];
-    }
-    return [];
-  });
+  const [localSorting, setLocalSorting] = useState<SortingState>([]);
 
+  // Apply sorting changes automatically
   useEffect(() => {
-    if (filters?.sort) {
-      setLocalSorting([
-        {
-          id: filters.sort.sortBy,
-          desc: filters.sort.sortOrder === "desc",
-        },
-      ]);
-    } else {
-      setLocalSorting([]);
-    }
-  }, [filters?.sort]);
+    const sortState = localSorting.length > 0 ? localSorting[0] : null;
+    const newSort = sortState
+      ? {
+          sortBy: sortState.id as "age" | "fameRating" | "interests" | "distance",
+          sortOrder: (sortState.desc ? "desc" : "asc") as "asc" | "desc",
+        }
+      : undefined;
+
+    // Only update if sort actually changed
+    setFilters((prev) => {
+      const prevSort = prev.sort;
+      const sortChanged =
+        (!prevSort && newSort) ||
+        (prevSort && !newSort) ||
+        (prevSort &&
+          newSort &&
+          (prevSort.sortBy !== newSort.sortBy ||
+            prevSort.sortOrder !== newSort.sortOrder));
+
+      if (!sortChanged) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        sort: newSort,
+      };
+    });
+  }, [localSorting]);
 
   const handleSearch = () => {
     const firstName = firstNameInputRef.current?.value?.trim() || undefined;
@@ -161,7 +170,7 @@ export function BrowseAllDataTable() {
     const sortState = localSorting.length > 0 ? localSorting[0] : null;
     const sort = sortState
       ? {
-          sortBy: sortState.id as "age" | "fameRating" | "interests",
+          sortBy: sortState.id as "age" | "fameRating" | "interests" | "distance",
           sortOrder: (sortState.desc ? "desc" : "asc") as "asc" | "desc",
         }
       : undefined;

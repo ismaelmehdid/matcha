@@ -24,7 +24,8 @@ export const UserListItemSchema = z.object({
   fameRating: z.number(),
   cityName: z.string().nullable(),
   countryName: z.string().nullable(),
-  interests: z.array(InterestSchema)
+  interests: z.array(InterestSchema),
+  distance: z.number().optional(),
 });
 
 export const GetUsersResponseSchema = z.object({

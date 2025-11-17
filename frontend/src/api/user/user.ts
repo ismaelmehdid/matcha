@@ -1,7 +1,7 @@
 import apiClient from '@/lib/apiClient';
 import { parseApiResponse } from '../parseResponse';
 import { createApiResponseSchema } from '../schema';
-import { UserSchema, type SexualOrientation, type Gender, type User, type Matches, MatchesSchema, type Like, LikesResponseSchema, ProfileWithStatusSchema, type ProfileWithStatus } from '@/types/user';
+import { UserSchema, type SexualOrientation, type Gender, type User, type Matches, MatchesSchema, type Like, LikesResponseSchema, type LikeSent, LikesSentResponseSchema, ProfileWithStatusSchema, type ProfileWithStatus } from '@/types/user';
 import { getToastMessage } from '@/lib/messageMap';
 import { z } from 'zod';
 import { type LocationEntry, LocationListSchema, type GetUsersResponse, GetUsersResponseSchema } from '@/types/browse';
@@ -54,7 +54,7 @@ function buildSortAndFilterURLSearchParams(params?: {
   tags?: string[];
   firstName?: string;
   sort?: {
-    sortBy: 'age' | 'fameRating' | 'interests';
+    sortBy: 'age' | 'fameRating' | 'interests' | 'distance';
     sortOrder: 'asc' | 'desc';
   };
 }): URLSearchParams {
@@ -149,6 +149,14 @@ export const userApi = {
     return response.data.likes;
   },
 
+  getLikesSent: async (): Promise<LikeSent[]> => {
+    const response = await parseApiResponse(apiClient.get('/users/likes/sent'), createApiResponseSchema(LikesSentResponseSchema));
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+    return response.data.likes;
+  },
+
   getUsers: async (params?: {
     cursor?: string;
     minAge?: number;
@@ -160,7 +168,7 @@ export const userApi = {
     tags?: string[];
     firstName?: string;
     sort?: {
-      sortBy: 'age' | 'fameRating' | 'interests';
+      sortBy: 'age' | 'fameRating' | 'interests' | 'distance';
       sortOrder: 'asc' | 'desc';
     };
   }): Promise<GetUsersResponse> => {
@@ -186,7 +194,7 @@ export const userApi = {
     tags?: string[];
     firstName?: string;
     sort?: {
-      sortBy: 'age' | 'fameRating' | 'interests';
+      sortBy: 'age' | 'fameRating' | 'interests' | 'distance';
       sortOrder: 'asc' | 'desc';
     };
   }): Promise<GetUsersResponse> => {

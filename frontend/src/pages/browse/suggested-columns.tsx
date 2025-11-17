@@ -82,7 +82,17 @@ export function createSuggestedColumns(): ColumnDef<UserListItem>[] {
     },
     {
       id: "location",
-      header: "Location",
+      enableSorting: true,
+      header: ({ column }) => {
+        return (
+          <DataTableColumnHeader
+            column={column}
+            title="Location"
+            firstSortingOption="closest"
+            secondSortingOption="farthest"
+          />
+        );
+      },
       accessorFn: (row) => {
         const city = row.cityName || "";
         const country = row.countryName || "";
@@ -97,6 +107,12 @@ export function createSuggestedColumns(): ColumnDef<UserListItem>[] {
         const value =
           city && country ? `${city}, ${country}` : city || country || "-";
         return <div>{value}</div>;
+      },
+      sortingFn: (rowA, rowB) => {
+        // Sort by distance instead of alphabetically
+        const distanceA = rowA.original.distance ?? 999999;
+        const distanceB = rowB.original.distance ?? 999999;
+        return distanceA - distanceB;
       },
       filterFn: (row, _id, value) => {
         if (!value || !Array.isArray(value) || value.length === 0) {

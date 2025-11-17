@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
 import { getInitials } from "@/lib/utils";
 import { getPhotoUrl } from "@/utils/photoUtils";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 function ConversationCardContent({
   conversation,
@@ -198,10 +198,36 @@ function ConversationCardContent({
 export function Chat() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
   const { data: conversations, isLoading: conversationsLoading } =
     useConversations();
+
+  // Sync selected conversation with URL parameter
+  useEffect(() => {
+    const targetUsername = searchParams.get('with');
+
+    if (!targetUsername) {
+      // No 'with' parameter - clear selection
+      setSelectedConversation(null);
+      return;
+    }
+
+    if (!conversations) {
+      return;
+    }
+
+    // Find conversation matching the URL parameter
+    const conversation = conversations.find(
+      c => c.profilePreview.username === targetUsername
+    );
+
+    // Update selection if different from current
+    if (conversation && selectedConversation?.chatId !== conversation.chatId) {
+      setSelectedConversation(conversation);
+    }
+  }, [searchParams, conversations]);
 
   useEffect(() => {
     queryClient.setQueryData(
@@ -248,7 +274,10 @@ export function Chat() {
                         ? "bg-accent border-l-4 border-l-primary"
                         : ""
                     }`}
-                    onClick={() => setSelectedConversation(conversation)}
+                    onClick={() => {
+                      setSelectedConversation(conversation);
+                      navigate(`/chat?with=${conversation.profilePreview.username}`);
+                    }}
                   >
                     <div className="flex items-center space-x-3">
                       <div className="relative">
@@ -306,7 +335,7 @@ export function Chat() {
                       variant="ghost"
                       size="icon"
                       className="md:hidden mr-1"
-                      onClick={() => setSelectedConversation(null)}
+                      onClick={() => navigate('/chat')}
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </Button>

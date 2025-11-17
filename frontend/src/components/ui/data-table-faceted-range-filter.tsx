@@ -77,6 +77,13 @@ function RangeField({
     }
   }, [inputValue, value, min, max, onChange]);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleBlur();
+    }
+  }, [handleBlur]);
+
   return (
     <Field orientation="horizontal" className="items-center">
       <FieldLabel htmlFor={label} className="items-center">
@@ -89,6 +96,7 @@ function RangeField({
             value={inputValue}
             onChange={handleInputChange}
             onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             size={3}
             className="h-8 !w-14 font-mono text-center"
             maxLength={3}

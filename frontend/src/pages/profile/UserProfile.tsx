@@ -22,11 +22,28 @@ import {
   Navigation,
   Calendar,
   Users,
-  Compass,
+  Search,
 } from "lucide-react";
 import { calculateAge, formatMemberSince, formatLastSeen } from "@/utils/dateUtils";
 import { getPhotoUrl } from "@/utils/photoUtils";
 import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
+
+// Helper function to format sexual orientation as "interested in"
+function formatInterestedIn(gender: string | null, sexualOrientation: string | null): string {
+  if (!sexualOrientation) return "";
+
+  if (sexualOrientation === "bisexual") return "Everyone";
+
+  if (!gender) {
+    return sexualOrientation === "straight" ? "Opposite sex" : "Same sex";
+  }
+
+  if (gender === "male") {
+    return sexualOrientation === "straight" ? "Women" : "Men";
+  } else {
+    return sexualOrientation === "straight" ? "Men" : "Women";
+  }
+}
 
 export function UserProfile() {
   const { username } = useParams<{ username: string }>();
@@ -68,7 +85,7 @@ export function UserProfile() {
 
   // Handle message navigation
   const handleMessage = () => {
-    navigate('/chat');
+    navigate(`/chat?with=${username}`);
   };
 
   if (isLoading) {
@@ -150,7 +167,7 @@ export function UserProfile() {
                       {age && <span className="text-muted-foreground font-normal">, {age}</span>}
                     </h1>
 
-                    {/* Gender, Sexual Orientation, Member Since */}
+                    {/* Gender, Interested in, Member Since */}
                     <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
                       {user.gender && (
                         <div className="flex items-center gap-1">
@@ -162,8 +179,8 @@ export function UserProfile() {
                         <>
                           {user.gender && <span>•</span>}
                           <div className="flex items-center gap-1">
-                            <Compass className="w-3 h-3" />
-                            <span className="capitalize">{user.sexualOrientation}</span>
+                            <Search className="w-3 h-3" />
+                            <span>Interested in: {formatInterestedIn(user.gender, user.sexualOrientation)}</span>
                           </div>
                         </>
                       )}

@@ -252,6 +252,21 @@ export class UsersRepository {
           params.push(currentUserId);
           paramIndex++;
           break;
+        case 'distance':
+          const distanceSortOrder = sort.sortOrder === SortOrder.ASC ? 'ASC' : 'DESC';
+          // Haversine formula for distance calculation
+          orderByClause = `ORDER BY (
+            6371 * acos(
+              cos(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) *
+              cos(radians(u.latitude)) *
+              cos(radians(u.longitude) - radians((SELECT longitude FROM users WHERE id = $${paramIndex}))) +
+              sin(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) *
+              sin(radians(u.latitude))
+            )
+          ) ${distanceSortOrder} NULLS LAST`;
+          params.push(currentUserId);
+          paramIndex++;
+          break;
       }
       if (includeTiebreakers) {
         orderByClause += `, u.last_time_active DESC NULLS LAST, u.created_at DESC, u.id DESC`;
@@ -675,6 +690,17 @@ export class UsersRepository {
               conditions.push(`((SELECT COUNT(DISTINCT ui2.interest_id) FROM user_interests ui2 WHERE ui2.user_id = u.id AND ui2.interest_id IN (SELECT interest_id FROM user_interests WHERE user_id = $${paramIndex})) ${interestsOperator} $${paramIndex + 1} OR ((SELECT COUNT(DISTINCT ui2.interest_id) FROM user_interests ui2 WHERE ui2.user_id = u.id AND ui2.interest_id IN (SELECT interest_id FROM user_interests WHERE user_id = $${paramIndex})) = $${paramIndex + 1} AND (u.last_time_active IS NULL OR u.last_time_active < $${paramIndex + 2}::timestamp OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at < $${paramIndex + 3}::timestamp) OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at = $${paramIndex + 3}::timestamp AND u.id < $${paramIndex + 4}::uuid))))`);
               params.push(currentUserId);
               params.push(interestsValue);
+              params.push(cursorLastTimeActive || new Date().toISOString());
+              params.push(cursorCreatedAt);
+              params.push(cursorId);
+              paramIndex += 5;
+              break;
+            case 'distance':
+              const distanceValue = parseFloat(cursorSortValue);
+              const distanceOperator = sort.sortOrder === SortOrder.ASC ? '>' : '<';
+              conditions.push(`((6371 * acos(cos(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) * cos(radians(u.latitude)) * cos(radians(u.longitude) - radians((SELECT longitude FROM users WHERE id = $${paramIndex}))) + sin(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) * sin(radians(u.latitude)))) ${distanceOperator} $${paramIndex + 1} OR ((6371 * acos(cos(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) * cos(radians(u.latitude)) * cos(radians(u.longitude) - radians((SELECT longitude FROM users WHERE id = $${paramIndex}))) + sin(radians((SELECT latitude FROM users WHERE id = $${paramIndex}))) * sin(radians(u.latitude)))) = $${paramIndex + 1} AND (u.last_time_active IS NULL OR u.last_time_active < $${paramIndex + 2}::timestamp OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at < $${paramIndex + 3}::timestamp) OR (u.last_time_active = $${paramIndex + 2}::timestamp AND u.created_at = $${paramIndex + 3}::timestamp AND u.id < $${paramIndex + 4}::uuid))))`);
+              params.push(currentUserId);
+              params.push(distanceValue);
               params.push(cursorLastTimeActive || new Date().toISOString());
               params.push(cursorCreatedAt);
               params.push(cursorId);

@@ -101,6 +101,18 @@ export const LikesResponseSchema = z.object({
 });
 export type LikesResponse = z.infer<typeof LikesResponseSchema>;
 
+export const LikeSentSchema = z.object({
+  id: z.string(),
+  likedAt: z.string(),
+  liked: ProfilePreviewSchema,
+});
+export type LikeSent = z.infer<typeof LikeSentSchema>;
+
+export const LikesSentResponseSchema = z.object({
+  likes: z.array(LikeSentSchema),
+});
+export type LikesSentResponse = z.infer<typeof LikesSentResponseSchema>;
+
 export const RefreshTokenSchema = z.object({
   refreshToken: z.string(),
 });

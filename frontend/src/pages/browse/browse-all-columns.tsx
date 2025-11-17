@@ -51,8 +51,18 @@ export function createBrowseAllColumns(): ColumnDef<UserListItem>[] {
       },
     },
     {
-      id: "location",
-      header: "Location",
+      id: "distance",
+      enableSorting: true,
+      header: ({ column }) => {
+        return (
+          <DataTableColumnHeader
+            column={column}
+            title="Location"
+            firstSortingOption="closest"
+            secondSortingOption="farthest"
+          />
+        );
+      },
       accessorFn: (row) => {
         const city = row.cityName || "";
         const country = row.countryName || "";

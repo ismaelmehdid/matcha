@@ -1,9 +1,15 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/api/user/user";
 
 export function useLikeUser() {
+  const queryClient = useQueryClient();
+
   const mutation = useMutation({
     mutationFn: (userId: string) => userApi.likeUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['likes-sent'] });
+      queryClient.invalidateQueries({ queryKey: ['public-profile'] });
+    },
   });
 
   return {

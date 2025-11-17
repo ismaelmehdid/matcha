@@ -57,9 +57,11 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
     switch (notification.type) {
       case NotificationType.LIKE:
         toast.info(getNotificationDetails(notification));
+        queryClient.invalidateQueries({ queryKey: ['likes'] });
         break;
       case NotificationType.UNLIKE:
         toast.info(getNotificationDetails(notification));
+        queryClient.invalidateQueries({ queryKey: ['likes'] });
         break;
       case NotificationType.MATCH:
         toast.info(getNotificationDetails(notification));
@@ -67,6 +69,7 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
         break;
       case NotificationType.VIEW:
         toast.info(getNotificationDetails(notification));
+        queryClient.invalidateQueries({ queryKey: ['profile-views'] });
         break;
     }
   }
@@ -113,6 +116,7 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
       handleNewNotification(match);
       // Invalidate conversations to show the new chat
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
     });
 
     socketInstance.on('view', (view: NotificationView) => {
@@ -147,6 +151,8 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
         return oldData + 1;
       });
     }
+    // Invalidate conversations to update chat order
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }, [queryClient]);
 
   const sendMessage = useCallback((chatId: string, content: string, userId: string) => {
@@ -164,6 +170,8 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
         if (!oldData) return [tempMessage];
         return [...oldData, tempMessage];
       });
+      // Invalidate conversations to update chat order
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     }
   }, [socket, queryClient]);
 

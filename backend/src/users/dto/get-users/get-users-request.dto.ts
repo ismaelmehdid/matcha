@@ -21,7 +21,12 @@ export interface SortByInterests {
   sortOrder: SortOrder;
 }
 
-export type Sort = SortByAge | SortByFameRating | SortByInterests;
+export interface SortByDistance {
+  sortBy: 'distance';
+  sortOrder: SortOrder;
+}
+
+export type Sort = SortByAge | SortByFameRating | SortByInterests | SortByDistance;
 
 export class GetUsersRequestDto {
   @IsOptional()

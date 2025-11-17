@@ -15,6 +15,7 @@ import {
 import { PrivateUserDto } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { FindAllLikesResponseDto } from './dto/find-all-likes/find-all-likes-response.dto';
+import { FindAllLikesSentResponseDto } from './dto/find-all-likes-sent/find-all-likes-sent-response.dto';
 import { LikeUserRequestDto } from './dto/like-user/like-user-request.dto';
 import { CustomHttpException } from 'src/common/exceptions/custom-http.exception';
 import { GetLocationListResponseDto } from './dto/get-location-list/get-location-list.dto';
@@ -46,6 +47,13 @@ export class UserController {
   async findAllLikes(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: FindAllLikesResponseDto, messageKey: string }> {
     const likes: FindAllLikesResponseDto = await this.userService.findAllLikes(userId);
     return { success: true, data: likes, messageKey: 'SUCCESS_FIND_ALL_LIKES' };
+  }
+
+  @Get('likes/sent')
+  @UseGuards(AuthGuard)
+  async findAllLikesSent(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: FindAllLikesSentResponseDto, messageKey: string }> {
+    const likes: FindAllLikesSentResponseDto = await this.userService.findAllLikesSent(userId);
+    return { success: true, data: likes, messageKey: 'SUCCESS_FIND_ALL_LIKES_SENT' };
   }
 
   @Get('location-list')

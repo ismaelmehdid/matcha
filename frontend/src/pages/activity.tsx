@@ -3,14 +3,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProfileViews } from "@/hooks/useProfileViews";
 import { useLikes } from "@/hooks/useLikes";
+import { useLikesSent } from "@/hooks/useLikesSent";
 import { useAllMatches } from "@/hooks/useAllMatches";
 import { Spinner } from "@/components/ui/spinner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getPhotoUrl } from "@/utils/photoUtils";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Eye, Heart, Users } from "lucide-react";
 import { formatLastSeen } from "@/utils/dateUtils";
-import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -23,26 +23,31 @@ import { Label } from "@/components/ui/label";
 export function Activity() {
   const { data: profileViews, isLoading: isViewsLoading } = useProfileViews();
   const { data: likes, isLoading: isLikesLoading } = useLikes();
+  const { data: likesSent, isLoading: isLikesSentLoading } = useLikesSent();
   const { data: matches, isLoading: isMatchesLoading } = useAllMatches();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<string>("views");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeTab = searchParams.get("tab") || "views";
+  const likesSubTab = (searchParams.get("subtab") as "received" | "sent") || "received";
+
+  const handleTabChange = (tab: string) => {
+    setSearchParams({ tab });
+  };
+
+  const handleLikesSubTabChange = (subtab: "received" | "sent") => {
+    setSearchParams({ tab: "likes", subtab });
+  };
 
   return (
     <AppLayout>
-      <div className="flex-1 flex flex-col min-h-0 w-full max-w-5xl mx-auto gap-6">
-        <div className="flex flex-col gap-2 flex-shrink-0">
-          <h1 className="text-3xl font-bold">Activity</h1>
-          <p className="text-muted-foreground">
-            See who viewed your profile, who liked you, and all your matches
-          </p>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 w-full max-w-5xl mx-auto">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between flex-shrink-0">
             <Label htmlFor="activity-selector" className="sr-only">
               Activity View
             </Label>
-            <Select value={activeTab} onValueChange={setActiveTab}>
+            <Select value={activeTab} onValueChange={handleTabChange}>
               <SelectTrigger
                 className="flex w-fit md:hidden"
                 size="sm"
@@ -81,7 +86,7 @@ export function Activity() {
             </TabsList>
           </div>
 
-          <TabsContent value="views" className="flex-1 flex flex-col min-h-0 mt-2">
+          <TabsContent value="views" className="flex-1 flex flex-col min-h-0">
             <Card className="flex-1 flex flex-col min-h-0">
               <CardContent className="flex-1 overflow-auto p-4">
                 {isViewsLoading ? (
@@ -124,50 +129,106 @@ export function Activity() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="likes" className="flex-1 flex flex-col min-h-0 mt-2">
-            <Card className="flex-1 flex flex-col min-h-0">
-              <CardContent className="flex-1 overflow-auto p-4">
-                {isLikesLoading ? (
-                  <div className="flex justify-center p-8">
-                    <Spinner />
-                  </div>
-                ) : likes && likes.length > 0 ? (
-                  <div className="space-y-4">
-                    {likes.map((like) => (
-                      <div
-                        key={like.id}
-                        className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/profile/${like.liker.username}`)}
-                      >
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage
-                            src={like.liker.profilePicture ? getPhotoUrl(like.liker.profilePicture) : undefined}
-                          />
-                          <AvatarFallback>
-                            {like.liker.firstName[0]}{like.liker.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            {like.liker.firstName} {like.liker.lastName}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Liked you {formatLastSeen(new Date(like.likedAt))}
-                          </p>
-                        </div>
+          <TabsContent value="likes" className="flex-1 flex flex-col min-h-0">
+            <Tabs value={likesSubTab} onValueChange={handleLikesSubTabChange} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="w-full grid grid-cols-2 flex-shrink-0">
+                <TabsTrigger value="received">
+                  Received
+                </TabsTrigger>
+                <TabsTrigger value="sent">
+                  Sent
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="received" className="flex-1 flex flex-col min-h-0">
+                <Card className="flex-1 flex flex-col min-h-0">
+                  <CardContent className="flex-1 overflow-auto p-4">
+                    {isLikesLoading ? (
+                      <div className="flex justify-center p-8">
+                        <Spinner />
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-muted-foreground p-8">
-                    No one has liked you yet
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                    ) : likes && likes.length > 0 ? (
+                      <div className="space-y-4">
+                        {likes.map((like) => (
+                          <div
+                            key={like.id}
+                            className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => navigate(`/profile/${like.liker.username}`)}
+                          >
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage
+                                src={like.liker.profilePicture ? getPhotoUrl(like.liker.profilePicture) : undefined}
+                              />
+                              <AvatarFallback>
+                                {like.liker.firstName[0]}{like.liker.lastName[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="font-medium">
+                                {like.liker.firstName} {like.liker.lastName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Liked you {formatLastSeen(new Date(like.likedAt))}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground p-8">
+                        No one has liked you yet
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="sent" className="flex-1 flex flex-col min-h-0">
+                <Card className="flex-1 flex flex-col min-h-0">
+                  <CardContent className="flex-1 overflow-auto p-4">
+                    {isLikesSentLoading ? (
+                      <div className="flex justify-center p-8">
+                        <Spinner />
+                      </div>
+                    ) : likesSent && likesSent.length > 0 ? (
+                      <div className="space-y-4">
+                        {likesSent.map((like) => (
+                          <div
+                            key={like.id}
+                            className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => navigate(`/profile/${like.liked.username}`)}
+                          >
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage
+                                src={like.liked.profilePicture ? getPhotoUrl(like.liked.profilePicture) : undefined}
+                              />
+                              <AvatarFallback>
+                                {like.liked.firstName[0]}{like.liked.lastName[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="font-medium">
+                                {like.liked.firstName} {like.liked.lastName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                You liked {formatLastSeen(new Date(like.likedAt))}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground p-8">
+                        You haven't liked anyone yet
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
-          <TabsContent value="matches" className="flex-1 flex flex-col min-h-0 mt-2">
+          <TabsContent value="matches" className="flex-1 flex flex-col min-h-0">
             <Card className="flex-1 flex flex-col min-h-0">
               <CardContent className="flex-1 overflow-auto p-4">
                 {isMatchesLoading ? (

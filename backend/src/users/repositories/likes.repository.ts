@@ -23,7 +23,7 @@ export class LikesRepository {
 
   async findAllUsersWhoUserLiked(userId: string): Promise<LikeSent[]> {
     try {
-      const result = await this.db.query<LikeSent>(`SELECT to_user_id, created_at FROM likes WHERE from_user_id = $1`, [userId]);
+      const result = await this.db.query<LikeSent>(`SELECT to_user_id, created_at FROM likes WHERE from_user_id = $1 ORDER BY created_at DESC`, [userId]);
       return result.rows;
     } catch (error) {
       console.error(error);

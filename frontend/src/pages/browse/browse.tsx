@@ -10,24 +10,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 export function Browse() {
-  const [activeTab, setActiveTab] = useState<string>("suggested");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "suggested";
+
+  const handleTabChange = (tab: string) => {
+    setSearchParams({ tab });
+  };
 
   return (
     <AppLayout>
       <div className="flex-1 flex flex-col min-h-0">
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={handleTabChange}
           className="flex flex-col flex-1 min-h-0"
         >
           <div className="flex items-center justify-between flex-shrink-0">
             <Label htmlFor="view-selector" className="sr-only">
               View
             </Label>
-            <Select value={activeTab} onValueChange={setActiveTab}>
+            <Select value={activeTab} onValueChange={handleTabChange}>
               <SelectTrigger
                 className="flex w-fit @4xl/main:hidden"
                 size="sm"

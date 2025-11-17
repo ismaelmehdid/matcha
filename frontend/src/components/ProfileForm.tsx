@@ -34,7 +34,7 @@ const profileSchema = z.object({
     .refine((val) => validator.isEmail(val), { message: "Invalid email address" }),
   gender: z.enum(["male", "female"], { message: "Please select a gender" }),
   sexualOrientation: z.enum(["straight", "gay", "bisexual"], {
-    message: "Please select your sexual orientation",
+    message: "Please select who you're interested in",
   }),
   biography: z
     .string()
@@ -171,19 +171,23 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
         <div>
           <label className="text-sm font-medium mb-2 block">
-            Sexual Orientation
+            Interested in
           </label>
           <Select
             value={form.watch("sexualOrientation") || ""}
             onValueChange={(value) => form.setValue("sexualOrientation", value as "straight" | "gay" | "bisexual", { shouldDirty: true })}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select orientation" />
+              <SelectValue placeholder="Who are you looking for?" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="straight">Straight</SelectItem>
-              <SelectItem value="gay">Gay</SelectItem>
-              <SelectItem value="bisexual">Bisexual</SelectItem>
+              <SelectItem value="straight">
+                {form.watch("gender") === "male" ? "Women" : form.watch("gender") === "female" ? "Men" : "Opposite sex"}
+              </SelectItem>
+              <SelectItem value="gay">
+                {form.watch("gender") === "male" ? "Men" : form.watch("gender") === "female" ? "Women" : "Same sex"}
+              </SelectItem>
+              <SelectItem value="bisexual">Everyone</SelectItem>
             </SelectContent>
           </Select>
           {form.formState.errors.sexualOrientation && (

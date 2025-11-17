@@ -56,7 +56,7 @@ const formSchema = z.object({
   sexualOrientation: z
     .enum(["straight", "gay", "bisexual"])
     .refine((val) => val !== undefined, {
-      message: "Sexual orientation is required",
+      message: "Please select who you're interested in",
     }),
   biography: z
     .string()
@@ -237,25 +237,45 @@ export function CompleteProfileForm({ user }: { user: User }) {
               )}
             </Field>
             <Field>
-              <FieldLabel>What is your sexual orientation?</FieldLabel>
+              <FieldLabel>Who are you interested in?</FieldLabel>
               <Controller
                 name="sexualOrientation"
                 control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value || ""}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your sexual orientation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="straight">Straight</SelectItem>
-                      <SelectItem value="gay">Gay</SelectItem>
-                      <SelectItem value="bisexual">Bisexual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const selectedGender = watch("gender");
+
+                  // Determine labels based on selected gender
+                  const getOrientationLabel = (value: string) => {
+                    if (value === "bisexual") return "Everyone";
+
+                    if (!selectedGender) {
+                      // If gender not selected yet
+                      return value === "straight" ? "Opposite sex" : "Same sex";
+                    }
+
+                    if (selectedGender === "male") {
+                      return value === "straight" ? "Women" : "Men";
+                    } else {
+                      return value === "straight" ? "Men" : "Women";
+                    }
+                  };
+
+                  return (
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Who are you looking for?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="straight">{getOrientationLabel("straight")}</SelectItem>
+                        <SelectItem value="gay">{getOrientationLabel("gay")}</SelectItem>
+                        <SelectItem value="bisexual">{getOrientationLabel("bisexual")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  );
+                }}
               />
               {errors.sexualOrientation && (
                 <p className="text-sm text-red-500 mt-1">
