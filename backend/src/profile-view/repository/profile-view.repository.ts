@@ -29,7 +29,7 @@ export class ProfileViewRepository {
   async getProfileViews(userId: string): Promise<ProfileView[]> {
     try {
       const result = await this.db.query<ProfileView>(
-        'SELECT * FROM profile_views WHERE viewed_id = $1',
+        'SELECT * FROM profile_views WHERE viewed_id = $1 ORDER BY viewed_at DESC',
         [userId]
       );
       return result.rows;

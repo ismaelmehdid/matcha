@@ -39,13 +39,17 @@ export class ChatRepository {
   async findAllChats(userId: string): Promise<ChatDto[]> {
     try {
       const result = await this.db.query<ChatDto[]>(`
-        SELECT 
-          id,
-          user1_id as "user1Id",
-          user2_id as "user2Id",
-          created_at as "createdAt"
-        FROM chats 
-        WHERE user1_id = $1 OR user2_id = $1
+        SELECT
+          c.id,
+          c.user1_id as "user1Id",
+          c.user2_id as "user2Id",
+          c.created_at as "createdAt"
+        FROM chats c
+        WHERE c.user1_id = $1 OR c.user2_id = $1
+        ORDER BY COALESCE(
+          (SELECT MAX(m.created_at) FROM messages m WHERE m.chat_id = c.id),
+          c.created_at
+        ) DESC
       `, [userId]);
       return result.rows;
     } catch (error) {

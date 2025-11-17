@@ -9,10 +9,12 @@ export interface Like {
 
 export interface LikeSent {
   to_user_id: string;
+  created_at: Date;
 }
 
 export interface LikeReceived {
   from_user_id: string;
+  created_at: Date;
 }
 
 @Injectable()
@@ -21,7 +23,7 @@ export class LikesRepository {
 
   async findAllUsersWhoUserLiked(userId: string): Promise<LikeSent[]> {
     try {
-      const result = await this.db.query<{ to_user_id: string }>(`SELECT to_user_id FROM likes WHERE from_user_id = $1`, [userId]);
+      const result = await this.db.query<LikeSent>(`SELECT to_user_id, created_at FROM likes WHERE from_user_id = $1`, [userId]);
       return result.rows;
     } catch (error) {
       console.error(error);
@@ -31,7 +33,7 @@ export class LikesRepository {
 
   async findAllUsersWhoLikedUserId(userId: string): Promise<LikeReceived[]> {
     try {
-      const result = await this.db.query<{ from_user_id: string }>(`SELECT from_user_id FROM likes WHERE to_user_id = $1`, [userId]);
+      const result = await this.db.query<LikeReceived>(`SELECT from_user_id, created_at FROM likes WHERE to_user_id = $1 ORDER BY created_at DESC`, [userId]);
       return result.rows;
     } catch (error) {
       console.error(error);

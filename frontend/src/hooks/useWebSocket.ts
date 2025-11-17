@@ -111,6 +111,8 @@ export function useWebSocket(enabled: boolean = true): UseWebSocketReturn {
 
     socketInstance.on('match', (match: NotificationMatch) => {
       handleNewNotification(match);
+      // Invalidate conversations to show the new chat
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     });
 
     socketInstance.on('view', (view: NotificationView) => {
