@@ -1,15 +1,16 @@
 import { DatabaseService } from "src/database/database.service";
 import { CreateProfileViewRequestDto } from "../dto/create-profile-view/create-profile-view-request.dto";
 import { CustomHttpException } from "src/common/exceptions/custom-http.exception";
-import { HttpStatus } from "@nestjs/common";
+import { HttpStatus, Injectable } from "@nestjs/common";
 
 export interface ProfileView {
   id: string;
   viewer_id: string;
   viewed_id: string;
-  created_at: Date;
+  viewed_at: Date;
 }
 
+@Injectable()
 export class ProfileViewRepository {
   constructor(private readonly db: DatabaseService) { }
 
@@ -41,7 +42,7 @@ export class ProfileViewRepository {
   async getMostRecentProfileView(userId: string): Promise<ProfileView | null> {
     try {
       const result = await this.db.query<ProfileView>(
-        'SELECT * FROM profile_views WHERE viewed_id = $1 ORDER BY created_at DESC LIMIT 1',
+        'SELECT * FROM profile_views WHERE viewed_id = $1 ORDER BY viewed_at DESC LIMIT 1',
         [userId]
       );
       return result.rows[0] || null;

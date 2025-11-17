@@ -15,9 +15,11 @@ import {
 } from "@tanstack/react-table";
 import { UserDataTable } from "./user-data-table";
 import { createSuggestedColumns } from "./suggested-columns";
+import { useNavigate } from "react-router";
 
 export function SuggestedDataTable() {
   const columns = createSuggestedColumns();
+  const navigate = useNavigate();
   const [filterValues, setFilterValues] = useState({
     firstName: "",
     minAge: 18,
@@ -187,7 +189,12 @@ export function SuggestedDataTable() {
         </div>
       )}
       <div className="flex-1 flex flex-col min-h-0">
-        <UserDataTable table={table} columns={columns} isLoading={isLoading} />
+        <UserDataTable
+          table={table}
+          columns={columns}
+          isLoading={isLoading}
+          onRowClick={(user) => navigate(`/profile/${user.id}`)}
+        />
       </div>
     </div>
   );

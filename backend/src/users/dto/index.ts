@@ -26,3 +26,6 @@ export * from './get-location-list/get-location-list.dto';
 // Upload photo
 export * from './upload-photo/upload-photo-request.dto';
 export * from './upload-photo/upload-photo-response.dto';
+
+// Get public profile
+export * from './get-public-profile/get-public-profile-response.dto';

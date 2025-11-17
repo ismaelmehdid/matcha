@@ -23,6 +23,7 @@ import { type Filters } from "@/hooks/useUsers";
 import { useUsers } from "@/hooks/useUsers";
 import { UserDataTable } from "./user-data-table";
 import { createBrowseAllColumns } from "./browse-all-columns";
+import { useNavigate } from "react-router";
 
 interface BrowseAllTableProps {
   filters: Filters;
@@ -38,6 +39,7 @@ function BrowseAllTable({
   setLocalSorting,
 }: Omit<BrowseAllTableProps, "columns">) {
   const columns = createBrowseAllColumns();
+  const navigate = useNavigate();
   const { users, isLoading, hasMore, fetchNextPage, isFetchingNextPage } =
     useUsers(filters);
 
@@ -93,6 +95,7 @@ function BrowseAllTable({
       hasMore={hasMore}
       isFetchingNextPage={isFetchingNextPage}
       observerTarget={observerTarget}
+      onRowClick={(user) => navigate(`/profile/${user.id}`)}
     />
   );
 }

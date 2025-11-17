@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import type { ReactNode } from "react";
 import { Chat } from "./pages/chat";
 import { Browse } from "./pages/browse/browse";
+import { UserProfile } from "./pages/profile/UserProfile";
 
 function EmailVerificationGuard({ children }: { children: ReactNode }) {
   const { user, isLoading, isSuccess, isError } = useUser();
@@ -184,6 +185,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Browse />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
                 </ProtectedRoute>
               }
             />

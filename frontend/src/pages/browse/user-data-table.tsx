@@ -18,6 +18,7 @@ interface UserDataTableProps<TData> {
   hasMore?: boolean;
   isFetchingNextPage?: boolean;
   observerTarget?: React.RefObject<HTMLTableRowElement | null>;
+  onRowClick?: (row: TData) => void;
 }
 
 export function UserDataTable<TData>({
@@ -27,6 +28,7 @@ export function UserDataTable<TData>({
   hasMore = false,
   isFetchingNextPage = false,
   observerTarget,
+  onRowClick,
 }: UserDataTableProps<TData>) {
   return (
     <div className="bg-card rounded-xl border flex-1 overflow-auto min-h-0">
@@ -56,6 +58,8 @@ export function UserDataTable<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  onClick={() => onRowClick?.(row.original)}
+                  className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

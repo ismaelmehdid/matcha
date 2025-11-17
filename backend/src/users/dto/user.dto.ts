@@ -17,6 +17,7 @@ export class PublicUserDto {
   lastName: string;
   dateOfBirth: string | null;
   gender: Gender | null;
+  sexualOrientation: SexualOrientation | null;
   biography: string | null;
   fameRating: number;
   latitude: number | null;
@@ -33,6 +34,5 @@ export class PrivateUserDto extends PublicUserDto {
   email: string;
   username: string;
   isEmailVerified: boolean;
-  sexualOrientation: SexualOrientation | null;
   profileCompleted: boolean;
 }

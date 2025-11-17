@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put, UseGuards, HttpStatus, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, UseGuards, HttpStatus, Query, Param } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorators';
@@ -9,7 +9,8 @@ import {
   UpdateProfileResponseDto,
   CompleteProfileResponseDto,
   UpdateLocationRequestDto,
-  UpdateLocationResponseDto
+  UpdateLocationResponseDto,
+  GetPublicProfileResponseDto
 } from './dto';
 import { PrivateUserDto } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
@@ -32,55 +33,11 @@ export class UserController {
     return { success: true, data: { user: user }, messageKey: 'SUCCESS_GET_CURRENT_USER' };
   }
 
-  @Post('me/complete')
-  @UseGuards(AuthGuard)
-  async completeProfile(
-    @CurrentUser('sub') userId: string,
-    @Body() completeProfileDto: CompleteProfileRequestDto,
-  ): Promise<{ success: boolean, data: CompleteProfileResponseDto, messageKey: string }> {
-    const result: CompleteProfileResponseDto = await this.userService.completeProfile(userId, completeProfileDto);
-    return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_COMPLETED' };
-  }
-
-  @Put('me')
-  @UseGuards(AuthGuard)
-  async updateProfile(
-    @CurrentUser('sub') userId: string,
-    @Body() updateProfileDto: UpdateProfileRequestDto,
-  ): Promise<{ success: boolean, data: UpdateProfileResponseDto, messageKey: string }> {
-    const result: UpdateProfileResponseDto = await this.userService.updateProfile(userId, updateProfileDto);
-    return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_UPDATED' };
-  }
-
-  @Put('me/location')
-  @UseGuards(AuthGuard)
-  async updateLocation(
-    @CurrentUser('sub') userId: string,
-    @Body() updateLocationDto: UpdateLocationRequestDto,
-  ): Promise<{ success: boolean, data: UpdateLocationResponseDto, messageKey: string }> {
-    const result = await this.userService.updateLocation(userId, updateLocationDto.latitude, updateLocationDto.longitude);
-    return { success: true, data: result, messageKey: 'SUCCESS_LOCATION_UPDATED' };
-  }
-
   @Get('matches')
   @UseGuards(AuthGuard)
   async findAllMatches(@CurrentUser('sub') userId: string): Promise<{ success: boolean, data: FindAllMatchesResponseDto, messageKey: string }> {
     const matches: FindAllMatchesResponseDto = await this.userService.findAllMatches(userId);
     return { success: true, data: matches, messageKey: 'SUCCESS_FIND_ALL_MATCHES' };
-  }
-
-  @Post('like')
-  @UseGuards(AuthGuard)
-  async likeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
-    await this.userService.likeUser(userId, likeUserRequestDto.userId);
-    return { success: true, messageKey: 'SUCCESS_LIKE_USER' };
-  }
-
-  @Post('unlike')
-  @UseGuards(AuthGuard)
-  async unlikeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
-    await this.userService.unLikeUser(userId, likeUserRequestDto.userId);
-    return { success: true, messageKey: 'SUCCESS_UNLIKE_USER' };
   }
 
   @Get('location-list')
@@ -151,5 +108,64 @@ export class UserController {
 
     const result = await this.userService.resolveLongitudeAndLatitudeByIPAddress(ipAddress);
     return { success: true, data: result, messageKey: 'SUCCESS_RESOLVE_LOCATION' };
+  }
+
+  // Note: This route must be defined AFTER all other GET routes
+  // to prevent :userId parameter from intercepting specific route names
+  @Get(':userId')
+  @UseGuards(AuthGuard)
+  async getPublicProfile(
+    @CurrentUser('sub') currentUserId: string,
+    @Param('userId') targetUserId: string
+  ): Promise<{ success: boolean, data: GetPublicProfileResponseDto, messageKey: string }> {
+    if (currentUserId === targetUserId) {
+      throw new CustomHttpException('CANNOT_VIEW_OWN_PROFILE', 'Cannot view your own profile this way', 'ERROR_CANNOT_VIEW_OWN_PROFILE', HttpStatus.BAD_REQUEST);
+    }
+    const result: GetPublicProfileResponseDto = await this.userService.getPublicProfile(currentUserId, targetUserId);
+    return { success: true, data: result, messageKey: 'SUCCESS_GET_PUBLIC_PROFILE' };
+  }
+
+  @Post('me/complete')
+  @UseGuards(AuthGuard)
+  async completeProfile(
+    @CurrentUser('sub') userId: string,
+    @Body() completeProfileDto: CompleteProfileRequestDto,
+  ): Promise<{ success: boolean, data: CompleteProfileResponseDto, messageKey: string }> {
+    const result: CompleteProfileResponseDto = await this.userService.completeProfile(userId, completeProfileDto);
+    return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_COMPLETED' };
+  }
+
+  @Put('me')
+  @UseGuards(AuthGuard)
+  async updateProfile(
+    @CurrentUser('sub') userId: string,
+    @Body() updateProfileDto: UpdateProfileRequestDto,
+  ): Promise<{ success: boolean, data: UpdateProfileResponseDto, messageKey: string }> {
+    const result: UpdateProfileResponseDto = await this.userService.updateProfile(userId, updateProfileDto);
+    return { success: true, data: result, messageKey: 'SUCCESS_PROFILE_UPDATED' };
+  }
+
+  @Put('me/location')
+  @UseGuards(AuthGuard)
+  async updateLocation(
+    @CurrentUser('sub') userId: string,
+    @Body() updateLocationDto: UpdateLocationRequestDto,
+  ): Promise<{ success: boolean, data: UpdateLocationResponseDto, messageKey: string }> {
+    const result = await this.userService.updateLocation(userId, updateLocationDto.latitude, updateLocationDto.longitude);
+    return { success: true, data: result, messageKey: 'SUCCESS_LOCATION_UPDATED' };
+  }
+
+  @Post('like')
+  @UseGuards(AuthGuard)
+  async likeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
+    await this.userService.likeUser(userId, likeUserRequestDto.userId);
+    return { success: true, messageKey: 'SUCCESS_LIKE_USER' };
+  }
+
+  @Post('unlike')
+  @UseGuards(AuthGuard)
+  async unlikeUser(@CurrentUser('sub') userId: string, @Body() likeUserRequestDto: LikeUserRequestDto) {
+    await this.userService.unLikeUser(userId, likeUserRequestDto.userId);
+    return { success: true, messageKey: 'SUCCESS_UNLIKE_USER' };
   }
 }

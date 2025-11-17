@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
 import { getInitials } from "@/lib/utils";
 import { getPhotoUrl } from "@/utils/photoUtils";
+import { useNavigate } from "react-router";
 
 function ConversationCardContent({
   conversation,
@@ -196,6 +197,7 @@ function ConversationCardContent({
 
 export function Chat() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
   const { data: conversations, isLoading: conversationsLoading } =
@@ -308,25 +310,32 @@ export function Chat() {
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={getPhotoUrl(
-                          selectedConversation.profilePreview.profilePicture
-                        )}
-                        alt={`${selectedConversation.profilePreview.firstName} ${selectedConversation.profilePreview.lastName}`}
-                      />
-                      <AvatarFallback>
-                        {getInitials(
-                          selectedConversation.profilePreview.firstName,
-                          selectedConversation.profilePreview.lastName
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold text-foreground">
-                        {selectedConversation.profilePreview.firstName}{" "}
-                        {selectedConversation.profilePreview.lastName}
-                      </h3>
+                    <div
+                      className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() =>
+                        navigate(`/profile/${selectedConversation.profilePreview.id}`)
+                      }
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={getPhotoUrl(
+                            selectedConversation.profilePreview.profilePicture
+                          )}
+                          alt={`${selectedConversation.profilePreview.firstName} ${selectedConversation.profilePreview.lastName}`}
+                        />
+                        <AvatarFallback>
+                          {getInitials(
+                            selectedConversation.profilePreview.firstName,
+                            selectedConversation.profilePreview.lastName
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-semibold text-foreground">
+                          {selectedConversation.profilePreview.firstName}{" "}
+                          {selectedConversation.profilePreview.lastName}
+                        </h3>
+                      </div>
                     </div>
                   </div>
                 </div>

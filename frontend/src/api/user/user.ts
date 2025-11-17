@@ -1,7 +1,7 @@
 import apiClient from '@/lib/apiClient';
 import { parseApiResponse } from '../parseResponse';
 import { createApiResponseSchema } from '../schema';
-import { UserSchema, type SexualOrientation, type Gender, type User, type Matches, MatchesSchema } from '@/types/user';
+import { UserSchema, type SexualOrientation, type Gender, type User, type Matches, MatchesSchema, ProfileWithStatusSchema, type ProfileWithStatus } from '@/types/user';
 import { getToastMessage } from '@/lib/messageMap';
 import { z } from 'zod';
 import { type LocationEntry, LocationListSchema, type GetUsersResponse, GetUsersResponseSchema } from '@/types/browse';
@@ -94,6 +94,19 @@ export const userApi = {
       throw new Error(getToastMessage(response.messageKey));
     }
     return response.data.user;
+  },
+
+  getPublicProfile: async (userId: string): Promise<ProfileWithStatus> => {
+    const response = await parseApiResponse(
+      apiClient.get(`/users/${userId}`),
+      createApiResponseSchema(ProfileWithStatusSchema)
+    );
+
+    if (!response.success) {
+      throw new Error(getToastMessage(response.messageKey));
+    }
+
+    return response.data;
   },
 
   completeProfile: async (request: CompleteProfileRequest): Promise<{ data: User; messageKey: string }> => {

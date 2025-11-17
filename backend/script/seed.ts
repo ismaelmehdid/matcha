@@ -153,7 +153,7 @@ function createRandomUser(): RandomUser {
   }
   const lastTimeActive = faker.date.recent();
   const portraitUrl = faker.image.personPortrait({ sex: gender, size: 512 });
-  const interests = faker.helpers.uniqueArray(interestsIds, faker.number.int({ min: 1, max: interestsIds.length }));
+  const interests = faker.helpers.uniqueArray(interestsIds, faker.number.int({ min: 1, max: 10 }));
   const dateOfBirth = faker.date.birthdate({ min: 18, max: 70, mode: 'age' });
 
   return {

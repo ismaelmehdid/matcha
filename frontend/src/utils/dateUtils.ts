@@ -58,3 +58,33 @@ export function formatDateOfBirth(dateOfBirth: string): string {
     day: 'numeric',
   });
 }
+
+/**
+ * Format member since date
+ * @param createdAt - Date when user registered
+ * @returns Formatted date string (e.g., "January 2025")
+ */
+export function formatMemberSince(createdAt: Date): string {
+  return createdAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+/**
+ * Format last seen time in a human-readable format
+ * @param lastTimeActive - Last active timestamp or null
+ * @returns Formatted string (e.g., "just now", "2h ago", "5d ago")
+ */
+export function formatLastSeen(lastTimeActive: Date | null): string {
+  if (!lastTimeActive) return 'a while ago';
+
+  const now = new Date();
+  const diff = now.getTime() - lastTimeActive.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return lastTimeActive.toLocaleDateString();
+}

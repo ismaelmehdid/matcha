@@ -22,6 +22,7 @@ import {
   PrivateUserDto,
   GetLocationListResponseDto,
   LocationEntryDto,
+  GetPublicProfileResponseDto,
 } from './dto';
 import { FindAllMatchesResponseDto } from './dto/find-all-matches/find-all-matches-response.dto';
 import { RedisRepository } from 'src/redis/repositories/redis.repository';
@@ -141,6 +142,7 @@ export class UserService {
       lastName: user.last_name,
       dateOfBirth: user.date_of_birth ? user.date_of_birth.toISOString() : null,
       gender: user.gender,
+      sexualOrientation: user.sexual_orientation,
       biography: user.biography,
       fameRating: user.fame_rating,
       latitude: Number(user.latitude),
@@ -583,6 +585,33 @@ export class UserService {
     const user: User | null = await this.usersRepository.findById(id);
     if (!user) return null;
     return this.mapUserToPublicUserDto(user);
+  }
+
+  async getPublicProfile(currentUserId: string, targetUserId: string): Promise<GetPublicProfileResponseDto> {
+    const targetUser = await this.findPublicProfileById(targetUserId);
+    if (!targetUser) {
+      throw new CustomHttpException('USER_NOT_FOUND', 'User not found', 'ERROR_USER_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    // Check connection status
+    const youLikedThem = await this.hasUserLikedUser(currentUserId, targetUserId);
+    const theyLikedYou = await this.hasUserLikedUser(targetUserId, currentUserId);
+    const isConnected = youLikedThem && theyLikedYou;
+
+    // Check online status (online if active in last 5 minutes)
+    const isOnline = targetUser.lastTimeActive
+      ? new Date().getTime() - new Date(targetUser.lastTimeActive).getTime() < 5 * 60 * 1000
+      : false;
+
+    return {
+      user: targetUser,
+      connectionStatus: {
+        youLikedThem,
+        theyLikedYou,
+        isConnected,
+      },
+      isOnline,
+    };
   }
 
   async findByUsername(username: string): Promise<PrivateUserDto | null> {

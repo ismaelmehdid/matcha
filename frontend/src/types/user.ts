@@ -57,8 +57,24 @@ export const ProfileSchema = z.object({
   cityName: z.string().nullable(),
   countryName: z.string().nullable(),
   interests: z.array(InterestSchema),
+  dateOfBirth: z.string().nullable(),
+  sexualOrientation: SexualOrientationSchema.nullable(),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
+
+export const ConnectionStatusSchema = z.object({
+  youLikedThem: z.boolean(),
+  theyLikedYou: z.boolean(),
+  isConnected: z.boolean(),
+});
+export type ConnectionStatus = z.infer<typeof ConnectionStatusSchema>;
+
+export const ProfileWithStatusSchema = z.object({
+  user: ProfileSchema,
+  connectionStatus: ConnectionStatusSchema,
+  isOnline: z.boolean(),
+});
+export type ProfileWithStatus = z.infer<typeof ProfileWithStatusSchema>;
 
 export const ProfilePreviewSchema = z.object({
   id: z.string(),

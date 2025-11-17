@@ -9,9 +9,10 @@ import { NotificationModule } from './notifications/notification.module';
 import { EventModule } from './event/event.module';
 import { MessagesModule } from './messages/message.module';
 import { UserModule } from './users/user.module';
+import { ProfileViewModule } from './profile-view/profile-view.module';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, InterestModule, ChatModule, NotificationModule, EventModule, MessagesModule, UserModule],
+  imports: [AuthModule, DatabaseModule, InterestModule, ChatModule, NotificationModule, EventModule, MessagesModule, UserModule, ProfileViewModule],
   controllers: [AppController],
   providers: [AppService],
 })

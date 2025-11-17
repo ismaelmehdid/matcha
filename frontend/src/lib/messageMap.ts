@@ -15,6 +15,9 @@ export const messageMap: Record<string, string> = {
   "SUCCESS_PHOTOS_RETRIEVED": "Photos loaded successfully",
   "SUCCESS_PHOTO_DELETED": "Photo deleted successfully",
   "SUCCESS_PROFILE_PICTURE_SET": "Profile picture updated successfully ✨",
+  "SUCCESS_GET_PUBLIC_PROFILE": "Profile loaded successfully",
+  "SUCCESS_GET_PROFILE_VIEWS": "Profile views loaded successfully",
+  "SUCCESS_CREATE_PROFILE_VIEW": "Profile view recorded",
 
   // Error messages
   "ERROR_INTERNAL_SERVER": "An unexpected internal server error occurred please try again later",
@@ -42,6 +45,7 @@ export const messageMap: Record<string, string> = {
   "ERROR_IMAGE_TOO_SMALL": "Image is too small. Minimum dimensions are 200x200 pixels",
   "ERROR_INVALID_ASPECT_RATIO": "Image aspect ratio is too extreme. Please use a more standard image proportion",
   "ERROR_CANNOT_DELETE_LAST_PHOTO": "You must have at least one photo. Please upload a new photo before deleting this one",
+  "ERROR_CANNOT_VIEW_OWN_PROFILE": "You cannot view your own profile this way. Use the profile page instead",
   "ERROR_UNKNOWN": "An unknown error occurred. Please try again.",
 }
 
