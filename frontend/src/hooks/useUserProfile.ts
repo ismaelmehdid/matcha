@@ -3,12 +3,19 @@ import { userApi } from '../api/user/user';
 import { toast } from 'sonner';
 import type { User } from '@/types/user';
 import { getToastMessage } from '@/lib/messageMap';
+import { useEffect } from 'react';
 
 export function useCurrentUser() {
   const query = useQuery({
     queryKey: ['user'],
     queryFn: userApi.getOwnProfile,
   });
+
+  useEffect(() => {
+    if (query.isError && query.error) {
+      toast.error(query.error.message);
+    }
+  }, [query.isError, query.error]);
 
   return {
     data: query.data,

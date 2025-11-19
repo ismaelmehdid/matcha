@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { userApi } from "@/api/user/user";
 import { type Filters } from "./useUsers";
+import { toast } from "sonner";
+import { useEffect } from "react";
 
 export function useSuggestedUsers(params?: Filters) {
   let cities: string[] = [];
@@ -27,6 +29,12 @@ export function useSuggestedUsers(params?: Filters) {
       });
     },
   });
+
+  useEffect(() => {
+    if (query.isError && query.error) {
+      toast.error(query.error.message);
+    }
+  }, [query.isError, query.error]);
 
   return {
     users: query.data?.users ?? [],

@@ -8,6 +8,8 @@ export function useUnreadMessagesCount() {
     staleTime: 15_000,
   });
 
+  // Silent error handling for this one
+
   return {
     data: query.data ?? 0,
     isLoading: query.isLoading,

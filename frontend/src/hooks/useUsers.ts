@@ -1,6 +1,8 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/api/user/user";
 import { type GetUsersResponse } from "@/types/browse";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 export interface Filters {
   minAge?: number;
@@ -52,6 +54,12 @@ export function useUsers(params?: Filters) {
     },
     initialPageParam: undefined,
   });
+
+  useEffect(() => {
+    if (query.isError && query.error) {
+      toast.error(query.error.message);
+    }
+  }, [query.isError, query.error]);
 
   const users = query.data?.pages.flatMap(page => page.users) ?? [];
   const hasMore = query.data?.pages[query.data.pages.length - 1]?.hasMore ?? false;

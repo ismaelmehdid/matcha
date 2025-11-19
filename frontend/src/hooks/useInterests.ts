@@ -2,12 +2,19 @@ import { interestApi } from "@/api/interest/interest";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getToastMessage } from "@/lib/messageMap";
+import { useEffect } from "react";
 
 export function useInterests() {
   const query = useQuery({
     queryKey: ['interests'],
     queryFn: interestApi.findAll,
   });
+
+  useEffect(() => {
+    if (query.isError && query.error) {
+      toast.error(query.error.message);
+    }
+  }, [query.isError, query.error]);
 
   return {
     data: query.data,

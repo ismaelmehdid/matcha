@@ -1,10 +1,17 @@
-import { useState, useCallback, useEffect } from 'react';
-import Cropper from 'react-easy-crop';
-import type { Area } from 'react-easy-crop';
-import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
-import { Slider } from './ui/slider';
-import { ZoomIn } from 'lucide-react';
+import { useState, useCallback, useEffect } from "react";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "./ui/dialog";
+import { Slider } from "./ui/slider";
+import { ZoomIn } from "lucide-react";
 
 interface ImageCropModalProps {
   file: File;
@@ -20,8 +27,13 @@ export interface CropData {
   height: number;
 }
 
-export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropModalProps) {
-  const [imageSrc, setImageSrc] = useState<string>('');
+export function ImageCropModal({
+  file,
+  isOpen,
+  onClose,
+  onConfirm,
+}: ImageCropModalProps) {
+  const [imageSrc, setImageSrc] = useState<string>("");
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -38,9 +50,12 @@ export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropMo
   }, [file]);
 
   // Callback when crop area changes
-  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+  const onCropComplete = useCallback(
+    (_croppedArea: Area, croppedAreaPixels: Area) => {
+      setCroppedAreaPixels(croppedAreaPixels);
+    },
+    []
+  );
 
   const handleConfirm = () => {
     if (!croppedAreaPixels) return;
@@ -60,13 +75,12 @@ export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropMo
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Adjust Photo</DialogTitle>
+          <DialogDescription>
+            Drag to reposition and use the slider to zoom
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 md:gap-4 py-1 md:py-2">
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Drag to reposition and use the slider to zoom
-          </p>
-
           {/* Cropper container */}
           <div className="relative w-full h-[400px] bg-black rounded-lg overflow-hidden">
             {imageSrc && (
@@ -93,7 +107,7 @@ export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropMo
             </div>
             <Slider
               value={[zoom]}
-              onValueChange={(value) => setZoom(value[0])}
+              onValueChange={(value: number[]) => setZoom(value[0])}
               min={1}
               max={3}
               step={0.1}
@@ -106,9 +120,7 @@ export function ImageCropModal({ file, isOpen, onClose, onConfirm }: ImageCropMo
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm}>
-            Confirm & Upload
-          </Button>
+          <Button onClick={handleConfirm}>Confirm & Upload</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
