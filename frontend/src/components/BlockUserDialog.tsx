@@ -33,12 +33,12 @@ export function BlockUserDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>
             This will:
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Remove your match with this user</li>
-              <li>Hide your profile from them</li>
-              <li>You won't be able to message each other</li>
-            </ul>
           </AlertDialogDescription>
+          <ul className="list-disc list-inside mt-2 space-y-1 text-sm text-muted-foreground ml-4">
+            <li>Remove your match with this user</li>
+            <li>Hide your profile from them</li>
+            <li>You won't be able to message each other</li>
+          </ul>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
