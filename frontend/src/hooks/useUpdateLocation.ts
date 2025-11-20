@@ -10,8 +10,9 @@ export function useUpdateLocation() {
   return useMutation({
     mutationFn: ({ latitude, longitude }: { latitude: number; longitude: number }) =>
       userApi.updateLocation({ latitude, longitude }),
-    onSuccess: ({ data, messageKey }: { data: User; messageKey: string }) => {
+    onSuccess: async ({ data, messageKey }: { data: User; messageKey: string }) => {
       queryClient.setQueryData(['user'], data);
+      await queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success(getToastMessage(messageKey));
     },
     onError: (error) => {
