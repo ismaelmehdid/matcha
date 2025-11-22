@@ -175,6 +175,12 @@
     scrollbar-width: auto;
     scrollbar-color: rgba(128, 128, 128, 0.5) rgba(128, 128, 128, 0.1);
   }
+
+  /* Override Leaflet font-family to prevent blocked font requests */
+  .leaflet-container,
+  .leaflet-container * {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  }
 }
 
 /* Logo Gradient Animation */
