@@ -71,7 +71,6 @@ export function LocationSelector({
       setStatus('success');
     } catch (gpsError) {
       // GPS failed, try IP-based location as fallback
-      console.log('GPS failed, trying IP-based location...');
 
       try {
         setStatus('resolving');
